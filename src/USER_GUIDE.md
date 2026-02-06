@@ -22,14 +22,22 @@
 5. Нажмите **Отмена**, если вы передумали.
 
 **Результат:**
-Будет создан лист **"Intent Types"** (размещен первым слева) со следующими колонками:
-- Transactional
-- Branded
-- Commercial
-- Local
-- Negative
-- Abbreviations
-- Site
+Произойдет очистка таблицы и создание двух новых листов:
+
+1. **"Intent Types"** (первая вкладка):
+   - Transactional, Branded, Commercial, Local, Negative, Abbreviations, Site
+
+2. **"Raw Data"** (вторая вкладка) — лист для сырых данных:
+   - Keyword
+   - Currency
+   - Avg. monthly searches
+   - Изменение за квартал
+   - Изменение за год
+   - Competition
+   - Competition index
+   - Bid Low
+   - Bid High
+   - Negative
 
 ## Что делать, если меню не появилось?
 Попробуйте обновить страницу браузера. Если меню все еще не появляется, обратитесь к администратору или разработчику.

@@ -24,9 +24,10 @@ This project is a Google Apps Script application designed to automate the manage
 - **Key Functions**:
   - `createStructure()`: 
     1. Creates the "Intent Types" sheet.
-    2. Populates it with configured headers.
-    3. Deletes all other sheets to reset the workspace.
-    4. Ensures the new sheet is at index 1.
+    2. Creates the "Raw Data" sheet.
+    3. Populates both with configured headers.
+    4. Deletes all other sheets to reset the workspace.
+    5. Ensures "Intent Types" is at index 1 and "Raw Data" at index 2.
 
 ### 4. `UI.gs` [User Interface]
 - **Purpose**: Manages the interaction between the user and the script.
