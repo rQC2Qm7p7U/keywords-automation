@@ -56,6 +56,10 @@ var MENU = {
     {
       caption: "1. Создать структуру таблицы",
       functionName: "handleCreateStructure"
+    },
+    {
+      caption: "2. Удалить дубликаты (Raw/Clean)",
+      functionName: "handleRemoveDuplicates"
     }
   ]
 };

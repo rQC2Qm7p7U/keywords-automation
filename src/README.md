@@ -33,10 +33,22 @@ This project is a Google Apps Script application designed to automate the manage
 ### 4. `UI.gs` [User Interface]
 - **Purpose**: Manages the interaction between the user and the script.
 - **Key Functions**:
-  - `onOpen()`: Builds the custom menu based on `MENU` config.
-  - `handleCreateStructure()`: Intercepts the menu click, calls `ui.alert` for confirmation, and executes `createStructure()` only upon user approval.
+  - `onOpen()`: Creates the "АВТОМАТИКА" menu.
+  - `handleCreateStructure()`: Confirms and executes structure creation.
+  - `handleRemoveDuplicates()`: Triggers duplicate removal process.
 
-### 5. `Code.gs` [Entry Point]
+### 5. `Keywords.gs` [Domain Logic]
+- **Purpose**: Pure domain logic for processing keyword data.
+- **Key Functions**:
+  - `removeDuplicates(data)`: Filters out duplicate rows based on column A.
+
+### 6. `SheetsService.gs` [Infrastructure]
+- **Purpose**: Abstraction layer for Google Sheets API.
+- **Key Functions**:
+  - `getSheetData(sheetName)`: Efficiently reads all data from a sheet.
+  - `updateSheetData(sheetName, data)`: Efficiently writes processed data back.
+
+### 7. `Code.gs` [Entry Point]
 - **Purpose**: The main entry point for the Apps Script project.
 - **Details**: Ensures necessary global triggers (like `onOpen`) are properly routed.
 

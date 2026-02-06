@@ -37,3 +37,40 @@ function handleCreateStructure() {
     // Do nothing
   }
 }
+
+/**
+ * Handles the "Remove Duplicates" menu item click.
+ * Processes "Raw Data" and "Clean Data" sheets.
+ */
+function handleRemoveDuplicates() {
+  try {
+    // 1. Process Raw Data
+    var rawData = getSheetData(SHEETS.RAW_DATA);
+    var rawResult = removeDuplicates(rawData);
+    
+    if (rawResult.removedCount > 0) {
+      updateSheetData(SHEETS.RAW_DATA, rawResult.uniqueData);
+    }
+    
+    // 2. Process Clean Data
+    var cleanData = getSheetData(SHEETS.CLEAN_DATA);
+    var cleanResult = removeDuplicates(cleanData);
+    
+    if (cleanResult.removedCount > 0) {
+      updateSheetData(SHEETS.CLEAN_DATA, cleanResult.uniqueData);
+    }
+    
+    // 3. Show Result
+    var msg = MESSAGES.SUCCESS.DUPLICATES_REMOVED
+      .replace("{0}", rawResult.removedCount)
+      .replace("{1}", cleanResult.removedCount);
+      
+    SpreadsheetApp.getActiveSpreadsheet().toast(msg);
+    
+  } catch (e) {
+    var ui = SpreadsheetApp.getUi();
+    ui.alert(MESSAGES.ERRORS.GENERAL + e.message);
+    console.error(e);
+  }
+}
+

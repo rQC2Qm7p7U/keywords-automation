@@ -16,6 +16,7 @@ var MESSAGES = {
     GENERAL: "Произошла ошибка: "
   },
   SUCCESS: {
-    STRUCTURE_CREATED: "Структура таблицы успешно создана!"
+    STRUCTURE_CREATED: "Структура таблицы успешно создана!",
+    DUPLICATES_REMOVED: "Удалено дублей:\nRaw Data: {0}\nClean Data: {1}"
   }
 };
