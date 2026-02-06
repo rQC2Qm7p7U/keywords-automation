@@ -30,6 +30,7 @@ function createStructure() {
   intentSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   intentSheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
   intentSheet.setFrozenRows(1);
+  protectHeaderRow(intentSheet);
   
   // 4. Create "Raw Data" sheet
   var rawDataSheet = ss.insertSheet(SHEETS.RAW_DATA);
@@ -39,6 +40,7 @@ function createStructure() {
   rawDataSheet.getRange(1, 1, 1, rawHeaders.length).setValues([rawHeaders]);
   rawDataSheet.getRange(1, 1, 1, rawHeaders.length).setFontWeight("bold");
   rawDataSheet.setFrozenRows(1);
+  protectHeaderRow(rawDataSheet);
 
   // 5. Delete the temporary sheet
   ss.deleteSheet(tempSheet);
@@ -57,4 +59,24 @@ function createStructure() {
   
   // Show success message
   ss.toast(MESSAGES.SUCCESS.STRUCTURE_CREATED);
+}
+
+/**
+ * Protects the first row (headers) of the given sheet.
+ * Only the owner will be able to edit it.
+ *
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The sheet to protect.
+ */
+function protectHeaderRow(sheet) {
+  var protection = sheet.getRange(1, 1, 1, sheet.getLastColumn()).protect();
+  protection.setDescription('Protected Headers');
+  
+  // Remove all editors except the script owner/runner
+  var me = Session.getEffectiveUser();
+  protection.addEditor(me);
+  protection.removeEditors(protection.getEditors());
+  
+  if (protection.canDomainEdit()) {
+    protection.setDomainEdit(false);
+  }
 }

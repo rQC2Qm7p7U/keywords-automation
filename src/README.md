@@ -46,6 +46,10 @@ To add new features:
 3. **New Logic**: Create a new file (e.g., `Processing.gs`) for business logic.
 4. **New Menu Items**: Add the item to `MENU` in `Config.gs` and creating a handler in `UI.gs`.
 
+## Security and Integrity
+- **Header Protection**: The first row (headers) of all structural sheets ("Intent Types", "Raw Data") is automatically protected.
+- **Access Control**: Only the spreadsheet owner (admin) can edit headers. This prevents accidental deletion or reordering of critical columns by other users. Changes to the structure code must be made to update headers.
+
 ## Best Practices Used
 - **Separation of Concerns and Modularity**: Logic, Data (Config), and UI are separated.
 - **DRY (Don't Repeat Yourself)**: Constants are used throughout.
