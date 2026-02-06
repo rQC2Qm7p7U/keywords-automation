@@ -5,8 +5,9 @@
 
 /**
  * Creates the custom menu when the spreadsheet opens.
+ * Called from Code.gs onOpen.
  */
-function onOpen() {
+function createProjectMenu() {
   var ui = SpreadsheetApp.getUi();
   var menu = ui.createMenu(MENU.TITLE);
   

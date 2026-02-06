@@ -4,9 +4,12 @@
  * Exposes global functions needed for the menu.
  */
 
-// Ensure onOpen is available globally
-function onOpenTrigger() {
-  onOpen();
+/**
+ * Standard trigger that runs when the spreadsheet opens.
+ * @param {Object} e - The event object.
+ */
+function onOpen(e) {
+  createProjectMenu();
 }
 
 // Ensure the menu handler is available globally
