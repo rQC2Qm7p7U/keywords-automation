@@ -41,11 +41,21 @@ function createStructure() {
   rawDataSheet.getRange(1, 1, 1, rawHeaders.length).setFontWeight("bold");
   rawDataSheet.setFrozenRows(1);
   protectHeaderRow(rawDataSheet);
+  
+  // 5. Create "Clean Data" sheet
+  var cleanDataSheet = ss.insertSheet(SHEETS.CLEAN_DATA);
+  
+  // Setup columns for "Clean Data"
+  var cleanHeaders = COLUMNS.CLEAN_DATA;
+  cleanDataSheet.getRange(1, 1, 1, cleanHeaders.length).setValues([cleanHeaders]);
+  cleanDataSheet.getRange(1, 1, 1, cleanHeaders.length).setFontWeight("bold");
+  cleanDataSheet.setFrozenRows(1);
+  protectHeaderRow(cleanDataSheet);
 
-  // 5. Delete the temporary sheet
+  // 6. Delete the temporary sheet
   ss.deleteSheet(tempSheet);
   
-  // 6. Ensure correct order and active sheet
+  // 7. Ensure correct order and active sheet
   // Position "Intent Types" at index 1
   intentSheet.activate();
   ss.moveActiveSheet(1);
@@ -53,6 +63,10 @@ function createStructure() {
   // Position "Raw Data" at index 2
   rawDataSheet.activate();
   ss.moveActiveSheet(2);
+  
+  // Position "Clean Data" at index 3
+  cleanDataSheet.activate();
+  ss.moveActiveSheet(3);
   
   // Switch back to the main sheet
   intentSheet.activate();

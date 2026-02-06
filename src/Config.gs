@@ -12,7 +12,8 @@ var CONFIG = {
 // Sheet Names
 var SHEETS = {
   INTENT_TYPES: "Intent Types",
-  RAW_DATA: "Raw Data"
+  RAW_DATA: "Raw Data",
+  CLEAN_DATA: "Clean Data"
 };
 
 // Columns Configuration
@@ -33,6 +34,14 @@ var COLUMNS = {
     "Изменение за квартал",
     "Изменение за год",
     "Competition",
+    "Competition index",
+    "Bid Low",
+    "Bid High",
+    "Negative"
+  ],
+  CLEAN_DATA: [
+    "Keyword",
+    "Avg. monthly searches",
     "Competition index",
     "Bid Low",
     "Bid High",
