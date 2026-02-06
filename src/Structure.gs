@@ -7,10 +7,6 @@
  * Deletes all existing sheets and creates the new structure.
  * This is a destructive operation.
  */
-/**
- * Deletes all existing sheets and creates the new structure.
- * This is a destructive operation.
- */
 function createStructure() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheets = ss.getSheets();
