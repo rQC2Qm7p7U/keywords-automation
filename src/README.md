@@ -1,7 +1,18 @@
 # Keyword Planner Automation - Technical Documentation
 
 ## Overview
-This project is a Google Apps Script application designed to automate the management and processing of Keyword Planner data in Google Sheets. It follows a modular architecture for maintainability and scalability.
+This project is a Google Apps Script application designed to automate the management and processing of Keyword Planner data in Google Sheets. It follows a modular architecture for maintainability, scalability, and performance.
+
+## Key Features
+- **Structure Automation**: One-click generation of the entire spreadsheet workspace.
+- **Data Processing**:
+  - Duplicate removal (Raw & Clean data).
+  - Advanced negative keyword filtering (optimized for performance).
+  - Data transfer and formatting between stages.
+- **Arsenkin Integration**:
+  - **Clustering**: Automated keyword clustering via Arsenkin API.
+  - **Optimized Region Search**: Bilingual (Ru/En) search with a dependent dropdown to handle 40,000+ regions without UI lag.
+  - **Secure Token Storage**: API tokens are stored securely in script properties.
 
 ## File Structure & Responsibility
 
@@ -16,41 +27,42 @@ This project is a Google Apps Script application designed to automate the manage
 ### 2. `Messages.gs` [Resources]
 - **Purpose**: Centralized repository for all user-facing text strings.
 - **Benefits**: Allows for easy localization and text updates without touching logic code.
-- **Key Objects**:
-  - `MESSAGES`: Contains nested objects for `WARNINGS`, `UI`, and `ERRORS`.
 
 ### 3. `Structure.gs` [Logic]
 - **Purpose**: Handles destructive and constructive operations on the spreadsheet structure.
 - **Key Functions**:
-  - `createStructure()`: 
-    1. Creates the "Intent Types" sheet.
-    2. Creates the "Raw Data" sheet.
-    3. Creates the "Clean Data" sheet.
-    4. Populates all with configured headers.
-    5. Deletes all other sheets to reset the workspace.
-    6. Ensures "Intent Types" is at index 1, "Raw Data" at index 2, and "Clean Data" at index 3.
+  - `createStructure()`: resets the workspace, creates sheets, and sets up validation rules including the **Dependent Dropdown** for regions.
 
 ### 4. `UI.gs` [User Interface]
 - **Purpose**: Manages the interaction between the user and the script.
 - **Key Functions**:
   - `onOpen()`: Creates the "АВТОМАТИКА" menu.
-  - `handleCreateStructure()`: Confirms and executes structure creation.
-  - `handleRemoveDuplicates()`: Triggers duplicate removal process.
+  - `handleRunClustering()`: Manages the clustering workflow.
 
-### 5. `Keywords.gs` [Domain Logic]
+### 5. `Keywords.gs` & `IntentService.gs` [Domain Logic]
 - **Purpose**: Pure domain logic for processing keyword data.
-- **Key Functions**:
-  - `removeDuplicates(data)`: Filters out duplicate rows based on column A.
+- **Key Features**:
+  - **Optimized Filtering**: Uses `indexOf` pre-checks before Regex to significantly speed up negative keyword filtering on large datasets.
 
-### 6. `SheetsService.gs` [Infrastructure]
+### 6. `ArsenkinClusters.gs` [API Service]
+- **Purpose**: Handles all communication with the Arsenkin Tools API.
+- **Key Features**:
+  - **Decoupled Logic**: Returns result objects instead of blocking UI calls.
+  - **Smart Lookup**: Automatically maps selected region names to IDs.
+
+### 7. `SheetsService.gs` [Infrastructure]
 - **Purpose**: Abstraction layer for Google Sheets API.
 - **Key Functions**:
-  - `getSheetData(sheetName)`: Efficiently reads all data from a sheet.
-  - `updateSheetData(sheetName, data)`: Efficiently writes processed data back.
+  - `getSheetData()` / `updateSheetData()`: Efficient bulk data operations.
 
-### 7. `Code.gs` [Entry Point]
+### 8. `Code.gs` [Entry Point]
 - **Purpose**: The main entry point for the Apps Script project.
-- **Details**: Ensures necessary global triggers (like `onOpen`) are properly routed.
+
+## Technical Highlights
+- **ES6+ Syntax**: The codebase uses modern JavaScript (const/let, arrow functions, template literals) via the V8 runtime.
+- **Performance**: 
+  - **Region Selector**: Implements a "Search -> Filter -> Select" pattern to handle 41k+ rows instantly using `QUERY` formulas.
+  - **Batch Operations**: All sheet reads/writes are batched to minimize API calls.
 
 ## Extension Guide
 To add new features:
@@ -60,11 +72,11 @@ To add new features:
 4. **New Menu Items**: Add the item to `MENU` in `Config.gs` and creating a handler in `UI.gs`.
 
 ## Security and Integrity
-- **Header Protection**: The first row (headers) of all structural sheets ("Intent Types", "Raw Data") is automatically protected.
-- **Access Control**: Only the spreadsheet owner (admin) can edit headers. This prevents accidental deletion or reordering of critical columns by other users. Changes to the structure code must be made to update headers.
+- **Header Protection**: The first row (headers) of all structural sheets is automatically protected.
+- **Access Control**: Only the spreadsheet owner (admin) can edit headers.
 
 ## Best Practices Used
-- **Separation of Concerns and Modularity**: Logic, Data (Config), and UI are separated.
+- **Separation of Concerns**: Logic (Domain), Data (Infrastructure), and Presentation (UI) are strictly separated.
 - **DRY (Don't Repeat Yourself)**: Constants are used throughout.
-- **Safety**: Destructive actions require explicit user confirmation.
-- **Scalability**: The structure allows for easy addition of new modules.
+- **User Experience**: Immediate feedback via Toasts, secure input methods, and performant UI controls.
+
