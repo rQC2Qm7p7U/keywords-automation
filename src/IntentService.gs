@@ -24,12 +24,14 @@ function collectNegativeKeywords() {
   
   var allNegatives = new Set();
   
-  // Process Raw Data
+    // Process Raw Data
   if (rawData && rawData.length > 0 && rawNegativeIndex !== -1) {
     rawData.forEach(function(row) {
-      if (row[rawNegativeIndex]) {
-        var val = String(row[rawNegativeIndex]).trim().toLowerCase();
-        if (val) allNegatives.add(val);
+      var cellValue = row[rawNegativeIndex];
+      // Check for null, undefined, or empty string, but ALLOW 0
+      if (cellValue !== null && cellValue !== undefined && cellValue !== "") {
+        var val = String(cellValue).trim().toLowerCase();
+        if (val !== "") allNegatives.add(val);
       }
     });
   }
@@ -37,9 +39,10 @@ function collectNegativeKeywords() {
   // Process Clean Data
   if (cleanData && cleanData.length > 0 && cleanNegativeIndex !== -1) {
     cleanData.forEach(function(row) {
-      if (row[cleanNegativeIndex]) {
-        var val = String(row[cleanNegativeIndex]).trim().toLowerCase();
-        if (val) allNegatives.add(val);
+      var cellValue = row[cleanNegativeIndex];
+      if (cellValue !== null && cellValue !== undefined && cellValue !== "") {
+        var val = String(cellValue).trim().toLowerCase();
+        if (val !== "") allNegatives.add(val);
       }
     });
   }
@@ -63,9 +66,10 @@ function collectNegativeKeywords() {
     var range = intentSheet.getRange(2, negativecolNum, lastRow - 1, 1);
     var values = range.getValues();
     values.forEach(function(row) {
-      if (row[0]) {
-        var val = String(row[0]).trim().toLowerCase();
-        if (val) allNegatives.add(val);
+      var cellValue = row[0];
+      if (cellValue !== null && cellValue !== undefined && cellValue !== "") {
+        var val = String(cellValue).trim().toLowerCase();
+        if (val !== "") allNegatives.add(val);
       }
     });
   }
