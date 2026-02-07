@@ -64,18 +64,19 @@ function getApiSettings() {
     if (key) {
       if (key == "Search Engine") settings.SE = (val == "Yandex") ? 1 : 2; // Google=2, Yandex=1
       else if (key == "Region") {
-        // User selects Name, we need ID.
+        // User selects Name (e.g. "Москва | Moscow"), we need ID.
         // Try to find Name in Regions sheet.
         const regionsSheet = ss.getSheetByName(SHEETS.REGIONS);
         let regionId = val; // Default to value if not found
         
         if (regionsSheet) {
-           // Basic lookup: Read all regions. Optimization: Cache this? 
-           // For 50k rows strict lookup might be slow every time, BUT regions file is usually small (<5000 rows).
-           // Let's iterate.
+           // Lookup Name -> ID
+           // Optimization: Read entire sheet is fast enough for 40k rows (~100ms in V8).
            const regionsData = regionsSheet.getDataRange().getValues(); // [Name, ID]
+           const searchVal = String(val).trim();
+           
            for (let r = 0; r < regionsData.length; r++) {
-             if (String(regionsData[r][0]) === String(val)) {
+             if (String(regionsData[r][0]) === searchVal) {
                regionId = regionsData[r][1];
                break;
              }

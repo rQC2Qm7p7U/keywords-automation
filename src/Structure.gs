@@ -62,31 +62,41 @@ function createStructure() {
 
     // 7. Create "Ars Regions" sheet (Hidden)
     const regionsSheet = ss.insertSheet(SHEETS.REGIONS);
-    let defaultRegionName = "Москва, Россия"; // Fallback
+    let defaultRegionName = ""; 
     
     try {
       const csvContent = UrlFetchApp.fetch("https://arsenkin.ru/google_regions.csv").getContentText();
       const csvData = Utilities.parseCsv(csvContent);
-      // CSV Structure: ID, EnName, RuName. Example: 1001493,"Minsk...","Минск..."
-      // We want: RuName, ID.
+      // CSV Structure: ID, EnName, RuName. 
+      // Example: 1001493,"Minsk,Minsk Region,Belarus","Минск,Минская Область,Беларусь"
       
       if (csvData.length > 0) {
-        // Prepare reordered data
-        const reorderedData = csvData.map(row => {
-          // Ensure we have at least 3 columns. If not, fallback.
-          // row[0] = ID, row[2] = RuName.
+        // Transform to [Composite Name, ID]
+        // Composite Name = "RuName | EnName" for bilingual search
+        let reorderedData = csvData.map(row => {
           const id = row[0];
-          const name = (row.length > 2 && row[2]) ? row[2] : (row[1] || id); 
+          // Fallbacks if columns are missing
+          const enName = (row.length > 1 && row[1]) ? row[1] : id;
+          const ruName = (row.length > 2 && row[2]) ? row[2] : enName;
           
-          // Capture default name for ID 213 (Moscow)
-          if (String(id) === "213") {
-            defaultRegionName = name;
-          }
-          
-          return [name, id];
+          const compositeName = `${ruName} | ${enName}`;
+          return [compositeName, id];
         });
         
-        // Auto-Resize sheet if data exceeds default 1000 rows
+        // SORT by Name (best practice for large lists)
+        reorderedData.sort((a, b) => a[0].localeCompare(b[0]));
+
+        // Find default name for ID 213 (Moscow) AFTER sorting/formatting
+        // We scan the processed list to find the exact string that will be in the dropdown
+        const defaults = reorderedData.find(r => String(r[1]) === "213");
+        if (defaults) {
+            defaultRegionName = defaults[0];
+        } else {
+            // Fallback if 213 not found, pick first item or generic
+            defaultRegionName = reorderedData.length > 0 ? reorderedData[0][0] : "213";
+        }
+        
+        // Auto-Resize sheet to fit data (prevent errors with >1000 rows)
         if (regionsSheet.getMaxRows() < reorderedData.length) {
           regionsSheet.insertRowsAfter(regionsSheet.getMaxRows(), reorderedData.length - regionsSheet.getMaxRows());
         }
@@ -129,8 +139,7 @@ function createStructure() {
     settingsSheet.getRange("B2").setDataValidation(seRule);
     
     // 2. Region (B3) - from Ars Regions sheet
-    // Col A is now Russian Name (thanks to reordering above with [Name, ID])
-    // We start from row 1 because Arsenkin CSV usually has no header, just data.
+    // Range covers all rows. Sort order in sheet determines dropdown order.
     const regionRange = regionsSheet.getRange(1, 1, regionsSheet.getLastRow(), 1);
     const regionRule = SpreadsheetApp.newDataValidation().requireValueInRange(regionRange).build();
     settingsSheet.getRange("B3").setDataValidation(regionRule);
