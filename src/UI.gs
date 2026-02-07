@@ -89,3 +89,17 @@ function handleCollectNegatives() {
     console.error(e);
   }
 }
+
+/**
+ * Handles the "Transfer Raw -> Clean" menu item click.
+ */
+function handleTransferRawToClean() {
+  try {
+    var count = transferRawToClean();
+    SpreadsheetApp.getActiveSpreadsheet().toast("Перенесено строк: " + count);
+  } catch (e) {
+    var ui = SpreadsheetApp.getUi();
+    ui.alert("Ошибка: " + e.message);
+    console.error(e);
+  }
+}

@@ -63,6 +63,10 @@ var MENU = {
     {
       caption: "3. Собрать минуса (Intent Types)",
       functionName: "handleCollectNegatives"
+    },
+    {
+      caption: "4. Перенос Raw -> Clean",
+      functionName: "handleTransferRawToClean"
     }
   ]
 };
