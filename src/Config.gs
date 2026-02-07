@@ -4,13 +4,13 @@
  */
 
 // General Project Settings
-var CONFIG = {
+const CONFIG = {
   PROJECT_NAME: "Keyword Planner Automation",
   VERSION: "1.0.0"
 };
 
 // Sheet Names
-var SHEETS = {
+const SHEETS = {
   INTENT_TYPES: "Intent Types",
   RAW_DATA: "Raw Data",
   CLEAN_DATA: "Clean Data",
@@ -20,7 +20,7 @@ var SHEETS = {
 };
 
 // Columns Configuration
-var COLUMNS = {
+const COLUMNS = {
   INTENT_TYPES: [
     "Transactional",
     "Branded",
@@ -62,7 +62,7 @@ var COLUMNS = {
 };
 
 // Menu Configuration
-var MENU = {
+const MENU = {
   TITLE: "АВТОМАТИКА",
   ITEMS: [
     {

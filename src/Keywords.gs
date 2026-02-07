@@ -15,13 +15,13 @@ function removeDuplicates(data) {
     return { uniqueData: [], removedCount: 0 };
   }
 
-  var seen = new Set();
-  var uniqueData = [];
-  var removedCount = 0;
+  const seen = new Set();
+  const uniqueData = [];
+  let removedCount = 0;
 
-  for (var i = 0; i < data.length; i++) {
-    var row = data[i];
-    var keyword = row[0]; // Assuming Column A is index 0
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const keyword = row[0]; // Assuming Column A is index 0
 
     if (seen.has(keyword)) {
       removedCount++;

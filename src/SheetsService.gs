@@ -11,21 +11,21 @@
  * @return {Array<Array<string>>} The data values. Returns empty array if sheet not found or empty.
  */
 function getSheetData(sheetName) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(sheetName);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
   
   if (!sheet) {
-    console.warn("Sheet not found: " + sheetName);
+    console.warn(`Sheet not found: ${sheetName}`);
     return [];
   }
   
-  var lastRow = sheet.getLastRow();
+  const lastRow = sheet.getLastRow();
   // If only header exists (1 row) or empty (0 rows), return empty
   if (lastRow <= 1) {
     return [];
   }
   
-  var lastCol = sheet.getLastColumn();
+  const lastCol = sheet.getLastColumn();
   
   // Safety check to ensure we don't try to get a range with 0 columns
   if (lastCol === 0) {
@@ -43,17 +43,17 @@ function getSheetData(sheetName) {
  * @param {Array<Array<string>>} data - The new data to write.
  */
 function updateSheetData(sheetName, data) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(sheetName);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
   
   if (!sheet) {
-    throw new Error("Sheet not found: " + sheetName);
+    throw new Error(`Sheet not found: ${sheetName}`);
   }
   
   // 1. Clear existing content (from row 2 onwards)
   // We use max rows and columns to ensure everything is cleared
-  var maxRows = sheet.getMaxRows();
-  var maxCols = sheet.getMaxColumns();
+  const maxRows = sheet.getMaxRows();
+  const maxCols = sheet.getMaxColumns();
   
   if (maxRows > 1) {
     // Clear everything below header
@@ -63,7 +63,7 @@ function updateSheetData(sheetName, data) {
   // 2. Write new data
   if (data && data.length > 0) {
     // Check if we need to add rows
-    var neededRows = data.length + 1; // +1 for header
+    const neededRows = data.length + 1; // +1 for header
     if (neededRows > maxRows) {
       sheet.insertRowsAfter(maxRows, neededRows - maxRows);
     }
@@ -80,15 +80,15 @@ function updateSheetData(sheetName, data) {
  * @param {string} colName - The name of the column header.
  */
 function clearColumnBackgroundByName(sheetName, colName) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(sheetName);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
   
   if (!sheet) return;
   
-  var colIndex = getColumnIndex(sheetName, colName);
+  const colIndex = getColumnIndex(sheetName, colName);
   if (colIndex === -1) return;
   
-  var maxRows = sheet.getMaxRows();
+  const maxRows = sheet.getMaxRows();
   if (maxRows > 1) {
     // Column index + 1 for 1-based index
     sheet.getRange(2, colIndex + 1, maxRows - 1, 1).setBackground(null);
@@ -103,7 +103,7 @@ function clearColumnBackgroundByName(sheetName, colName) {
  * @return {number} 0-based index or -1 if not found.
  */
 function getColumnIndex(sheetName, colName) {
-  var cols = null;
+  let cols = null;
   if (sheetName === SHEETS.RAW_DATA) cols = COLUMNS.RAW_DATA;
   else if (sheetName === SHEETS.CLEAN_DATA) cols = COLUMNS.CLEAN_DATA;
   else if (sheetName === SHEETS.INTENT_TYPES) cols = COLUMNS.INTENT_TYPES;
@@ -123,18 +123,18 @@ function getColumnIndex(sheetName, colName) {
  * @return {Array<any>} 1D array of values.
  */
 function getColumnValues(sheetName, colName) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(sheetName);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
   if (!sheet) return [];
   
-  var colIndex = getColumnIndex(sheetName, colName);
+  const colIndex = getColumnIndex(sheetName, colName);
   if (colIndex === -1) return [];
   
-  var lastRow = sheet.getLastRow();
+  const lastRow = sheet.getLastRow();
   if (lastRow <= 1) return [];
   
   // Get 2D array and flatten
-  return sheet.getRange(2, colIndex + 1, lastRow - 1, 1).getValues().map(function(r) { return r[0]; });
+  return sheet.getRange(2, colIndex + 1, lastRow - 1, 1).getValues().map(r => r[0]);
 }
 
 /**
@@ -145,24 +145,24 @@ function getColumnValues(sheetName, colName) {
  * @param {Array<any>} values - 1D array of values.
  */
 function setColumnValues(sheetName, colName, values) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(sheetName);
-  if (!sheet) throw new Error("Sheet not found: " + sheetName);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) throw new Error(`Sheet not found: ${sheetName}`);
   
-  var colIndex = getColumnIndex(sheetName, colName);
-  if (colIndex === -1) throw new Error("Column not found: " + colName);
+  const colIndex = getColumnIndex(sheetName, colName);
+  if (colIndex === -1) throw new Error(`Column not found: ${colName}`);
   
   if (!values || values.length === 0) return;
   
   // Check rows
-  var maxRows = sheet.getMaxRows();
-  var neededRows = values.length + 1;
+  const maxRows = sheet.getMaxRows();
+  const neededRows = values.length + 1;
   if (neededRows > maxRows) {
     sheet.insertRowsAfter(maxRows, neededRows - maxRows);
   }
   
   // Transform 1D to 2D
-  var output = values.map(function(v) { return [v]; });
+  const output = values.map(v => [v]);
   
   sheet.getRange(2, colIndex + 1, output.length, 1).setValues(output);
 }

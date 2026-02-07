@@ -8,63 +8,63 @@
  * This is a destructive operation.
  */
 function createStructure() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheets = ss.getSheets();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheets = ss.getSheets();
   
   // 1. Create a temporary sheet to ensure the spreadsheet is never empty
   // We use a timestamp to ensure uniqueness
-  var tempSheetName = "Temp_Setup_" + new Date().getTime();
-  var tempSheet = ss.insertSheet(tempSheetName);
+  const tempSheetName = `Temp_Setup_${new Date().getTime()}`;
+  const tempSheet = ss.insertSheet(tempSheetName);
   
   // 2. Delete ALL other sheets (including old "Intent Types" and "Raw Data")
   // This clears the workspace completely and avoids name collisions
-  for (var i = 0; i < sheets.length; i++) {
+  for (let i = 0; i < sheets.length; i++) {
     ss.deleteSheet(sheets[i]);
   }
   
   // 3. Create the new "Intent Types" sheet
-  var intentSheet = ss.insertSheet(SHEETS.INTENT_TYPES);
+  const intentSheet = ss.insertSheet(SHEETS.INTENT_TYPES);
   
   // Setup columns for "Intent Types"
-  var headers = COLUMNS.INTENT_TYPES;
+  const headers = COLUMNS.INTENT_TYPES;
   intentSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   intentSheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
   intentSheet.setFrozenRows(1);
   protectHeaderRow(intentSheet);
   
   // 4. Create "Raw Data" sheet
-  var rawDataSheet = ss.insertSheet(SHEETS.RAW_DATA);
+  const rawDataSheet = ss.insertSheet(SHEETS.RAW_DATA);
   
   // Setup columns for "Raw Data"
-  var rawHeaders = COLUMNS.RAW_DATA;
+  const rawHeaders = COLUMNS.RAW_DATA;
   rawDataSheet.getRange(1, 1, 1, rawHeaders.length).setValues([rawHeaders]);
   rawDataSheet.getRange(1, 1, 1, rawHeaders.length).setFontWeight("bold");
   rawDataSheet.setFrozenRows(1);
   protectHeaderRow(rawDataSheet);
   
   // 5. Create "Clean Data" sheet
-  var cleanDataSheet = ss.insertSheet(SHEETS.CLEAN_DATA);
+  const cleanDataSheet = ss.insertSheet(SHEETS.CLEAN_DATA);
   
   // Setup columns for "Clean Data"
-  var cleanHeaders = COLUMNS.CLEAN_DATA;
+  const cleanHeaders = COLUMNS.CLEAN_DATA;
   cleanDataSheet.getRange(1, 1, 1, cleanHeaders.length).setValues([cleanHeaders]);
   cleanDataSheet.getRange(1, 1, 1, cleanHeaders.length).setFontWeight("bold");
   cleanDataSheet.setFrozenRows(1);
   protectHeaderRow(cleanDataSheet);
 
   // 6. Create "Clusters" sheet
-  var clustersSheet = ss.insertSheet(SHEETS.CLUSTERS);
-  var clustersHeaders = COLUMNS.CLUSTERS;
+  const clustersSheet = ss.insertSheet(SHEETS.CLUSTERS);
+  const clustersHeaders = COLUMNS.CLUSTERS;
   clustersSheet.getRange(1, 1, 1, clustersHeaders.length).setValues([clustersHeaders]);
   clustersSheet.getRange(1, 1, 1, clustersHeaders.length).setFontWeight("bold");
   clustersSheet.setFrozenRows(1);
   protectHeaderRow(clustersSheet);
 
   // 7. Create "Ars Regions" sheet (Hidden)
-  var regionsSheet = ss.insertSheet(SHEETS.REGIONS);
+  const regionsSheet = ss.insertSheet(SHEETS.REGIONS);
   try {
-    var csvContent = UrlFetchApp.fetch("https://arsenkin.ru/google_regions.csv").getContentText();
-    var csvData = Utilities.parseCsv(csvContent);
+    const csvContent = UrlFetchApp.fetch("https://arsenkin.ru/google_regions.csv").getContentText();
+    const csvData = Utilities.parseCsv(csvContent);
     if (csvData.length > 0) {
       regionsSheet.getRange(1, 1, csvData.length, csvData[0].length).setValues(csvData);
     }
@@ -74,17 +74,17 @@ function createStructure() {
   regionsSheet.hideSheet();
 
   // 8. Create "Ars API Set" sheet
-  var settingsSheet = ss.insertSheet(SHEETS.SETTINGS);
+  const settingsSheet = ss.insertSheet(SHEETS.SETTINGS);
   
   // Setup columns
-  var settingsHeaders = COLUMNS.SETTINGS;
+  const settingsHeaders = COLUMNS.SETTINGS;
   settingsSheet.getRange(1, 1, 1, settingsHeaders.length).setValues([settingsHeaders]);
   settingsSheet.getRange(1, 1, 1, settingsHeaders.length).setFontWeight("bold");
   settingsSheet.setFrozenRows(1);
   protectHeaderRow(settingsSheet);
   
   // Define Settings Rows
-  var settingsRows = [
+  const settingsRows = [
     ["Search Engine", "Google", "Поисковая система"],
     ["Region", "213", "Регион поиска (выберите из списка)"],
     ["Group Type", "hard", "Тип группировки (soft/hard)"],
@@ -94,42 +94,34 @@ function createStructure() {
     ["API Token Status", "Not Set", "Статус токена (меняется через меню)"]
   ];
   
-  var startRow = 2;
+  const startRow = 2;
   settingsSheet.getRange(startRow, 1, settingsRows.length, 3).setValues(settingsRows);
   
   // --- DATA VALIDATION ---
   
   // 1. Search Engine (B2)
-  var seRule = SpreadsheetApp.newDataValidation().requireValueInList(["Google", "Yandex"]).build();
+  const seRule = SpreadsheetApp.newDataValidation().requireValueInList(["Google", "Yandex"]).build();
   settingsSheet.getRange("B2").setDataValidation(seRule);
   
   // 2. Region (B3) - from Ars Regions sheet
-  // Assuming ID is in Col A, Name in Col B in the CSV? 
-  // Let's check CSV format. Usually it is ID;Name or Name;ID.
-  // We'll create a dropdown from the range in REGIONS sheet.
-  // Ideally we want to see Name but store ID. Sheets dropdowns store the value selected.
-  // So user selects "213". Maybe we should show "Moscow (213)"?
-  // For now, let's just point to the Regions sheet column A (IDs) if that's what API needs.
-  // Update: Arsenkin CSV usually has ID, ParentID, Name, Type.
-  // Let's assume Col A is ID.
-  var regionRange = regionsSheet.getRange(2, 1, regionsSheet.getLastRow() - 1, 1);
-  var regionRule = SpreadsheetApp.newDataValidation().requireValueInRange(regionRange).build();
+  const regionRange = regionsSheet.getRange(2, 1, regionsSheet.getLastRow() - 1, 1);
+  const regionRule = SpreadsheetApp.newDataValidation().requireValueInRange(regionRange).build();
   settingsSheet.getRange("B3").setDataValidation(regionRule);
   
   // 3. Group Type (B4)
-  var groupRule = SpreadsheetApp.newDataValidation().requireValueInList(["soft", "hard"]).build();
+  const groupRule = SpreadsheetApp.newDataValidation().requireValueInList(["soft", "hard"]).build();
   settingsSheet.getRange("B4").setDataValidation(groupRule);
   
   // 4. Group Count (B5)
-  var countRule = SpreadsheetApp.newDataValidation().requireValueInList(["2", "3", "4", "5", "6", "7", "8", "9", "10"]).build();
+  const countRule = SpreadsheetApp.newDataValidation().requireValueInList(["2", "3", "4", "5", "6", "7", "8", "9", "10"]).build();
   settingsSheet.getRange("B5").setDataValidation(countRule);
   
   // 5. Depth (B6)
-  var depthRule = SpreadsheetApp.newDataValidation().requireValueInList(["10", "20", "30"]).build();
+  const depthRule = SpreadsheetApp.newDataValidation().requireValueInList(["10", "20", "30"]).build();
   settingsSheet.getRange("B6").setDataValidation(depthRule);
   
   // 6. Ignore Main (B7)
-  var boolRule = SpreadsheetApp.newDataValidation().requireCheckbox().build();
+  const boolRule = SpreadsheetApp.newDataValidation().requireCheckbox().build();
   settingsSheet.getRange("B7").setDataValidation(boolRule);
   
   // Auto-resize
@@ -165,11 +157,11 @@ function createStructure() {
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The sheet to protect.
  */
 function protectHeaderRow(sheet) {
-  var protection = sheet.getRange(1, 1, 1, sheet.getLastColumn()).protect();
+  const protection = sheet.getRange(1, 1, 1, sheet.getLastColumn()).protect();
   protection.setDescription('Protected Headers');
   
   // Remove all editors except the script owner/runner
-  var me = Session.getEffectiveUser();
+  const me = Session.getEffectiveUser();
   protection.addEditor(me);
   protection.removeEditors(protection.getEditors());
   
