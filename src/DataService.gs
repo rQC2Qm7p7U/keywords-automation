@@ -5,16 +5,7 @@
 
 /**
  * Transfers data from Raw Data to Clean Data and formats both sheets.
- * Mappings:
- * - Keyword -> Keyword
- * - Avg. monthly searches -> Avg. monthly searches
- * - Competition index -> Competition index
- * - Bid Low -> Bid Low
- * - Bid High -> Bid High
- * 
- * Also formats number columns:
- * - Avg. monthly searches, Competition index: Integer
- * - Bid Low, Bid High: Decimal (0.00)
+ * Optimized to reduce sheet rewrites.
  */
 function transferRawToClean() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -25,37 +16,46 @@ function transferRawToClean() {
     throw new Error("One or more sheets not found.");
   }
   
-  // 1. Get Raw Data
+  // 1. Get Raw Data (Full read needed for transfer as we mapping rows)
   var rawData = getSheetData(SHEETS.RAW_DATA);
   if (!rawData || rawData.length === 0) {
     return 0;
   }
   
-  // Column Indices (Config based)
+  // Column Indices (Config based usage)
   var rawIdx = {
-    keyword: COLUMNS.RAW_DATA.indexOf("Keyword"),
-    searches: COLUMNS.RAW_DATA.indexOf("Avg. monthly searches"),
-    compIndex: COLUMNS.RAW_DATA.indexOf("Competition index"),
-    bidLow: COLUMNS.RAW_DATA.indexOf("Bid Low"),
-    bidHigh: COLUMNS.RAW_DATA.indexOf("Bid High")
+    keyword: getColumnIndex(SHEETS.RAW_DATA, "Keyword"),
+    searches: getColumnIndex(SHEETS.RAW_DATA, "Avg. monthly searches"),
+    compIndex: getColumnIndex(SHEETS.RAW_DATA, "Competition index"),
+    bidLow: getColumnIndex(SHEETS.RAW_DATA, "Bid Low"),
+    bidHigh: getColumnIndex(SHEETS.RAW_DATA, "Bid High")
   };
   
-  // Prepare data for Clean Sheet
+  // Prepare data arrays
   var cleanData = [];
   
-  // Regex to detect commas in numbers (for US locale consistency)
-  // We want to replace comma with dot if it looks like a decimal separator
+  // Arrays for updating Raw Data columns in batch (Optimized)
+  var rawSearches = [];
+  var rawCompIndex = [];
+  var rawBidLow = [];
+  var rawBidHigh = [];
   
   rawData.forEach(function(row) {
     var keyword = row[rawIdx.keyword];
+    
+    // Parse values
     var searches = parseNumber(row[rawIdx.searches]);
     var compIndex = parseNumber(row[rawIdx.compIndex]);
     var bidLow = parseNumber(row[rawIdx.bidLow]);
     var bidHigh = parseNumber(row[rawIdx.bidHigh]);
     
-    // Structure matches CLEAN_DATA columns:
-    // "Keyword", "Avg. monthly searches", "Competition index", "Bid Low", "Bid High", "Negative"
-    // We leave Negative empty/undefined here as it's handled separately
+    // Collect for Raw Data update
+    rawSearches.push(searches);
+    rawCompIndex.push(compIndex);
+    rawBidLow.push(bidLow);
+    rawBidHigh.push(bidHigh);
+    
+    // Structure matches CLEAN_DATA columns
     var newRow = [
       keyword,
       searches,
@@ -66,39 +66,25 @@ function transferRawToClean() {
     ];
     
     cleanData.push(newRow);
-    
-    // Update the original row array with parsed values for Raw Data update
-    // We need to preserve other columns in Raw Data if any, but valid Raw Data has fixed columns.
-    // Let's create a new row for Raw Data with parsed numbers.
-    // Config: "Keyword", "Currency", "Avg. monthly searches", ...
-    // Indices:
-    // keyword (0), searches (2), compIndex (6), bidLow (7), bidHigh (8) - Wait, let's check COLUMNS.RAW_DATA
-    
-    // Actually, let's just update the specific columns in Raw Data to avoid messing up others?
-    // Or just write back the whole row if we have all data.
-    // getSheetData returns all columns.
-    
-    // Let's update the row object reference (which is an array) directly with valid numbers
-    row[rawIdx.searches] = searches;
-    row[rawIdx.compIndex] = compIndex;
-    row[rawIdx.bidLow] = bidLow;
-    row[rawIdx.bidHigh] = bidHigh;
   });
   
-  // 2. Write to Clean Sheet
-  // Use SheetsService to helper
+  // 2. Write to Clean Sheet (Full rewrite is okay here as it's a transfer/reset)
   updateSheetData(SHEETS.CLEAN_DATA, cleanData);
   
-  // 3. Update Raw Sheet with parsed numbers (to fix formatting)
-  // We reused the 'rawData' array objects, modifying them in place above.
-  updateSheetData(SHEETS.RAW_DATA, rawData);
+  // 3. Update Raw Sheet - OPTIMIZED to write only modified columns
+  // We use setColumnValues helper logic
+  if (rawSearches.length > 0) {
+    setColumnValues(SHEETS.RAW_DATA, "Avg. monthly searches", rawSearches);
+    setColumnValues(SHEETS.RAW_DATA, "Competition index", rawCompIndex);
+    setColumnValues(SHEETS.RAW_DATA, "Bid Low", rawBidLow);
+    setColumnValues(SHEETS.RAW_DATA, "Bid High", rawBidHigh);
+  }
   
   // 4. Format Sheets (Raw and Clean)
   formatSheetColumns(rawSheet, SHEETS.RAW_DATA);
   formatSheetColumns(cleanSheet, SHEETS.CLEAN_DATA);
   
   // 5. Reset Backgrounds in Negative column of Clean Data
-  // As requested by user, transfer should also reset the negative column highlights in Clean Data
   clearColumnBackgroundByName(SHEETS.CLEAN_DATA, "Negative");
   
   return cleanData.length;
@@ -133,13 +119,11 @@ function formatSheetColumns(sheet, sheetName) {
   var lastRow = sheet.getLastRow();
   if (lastRow <= 1) return;
   
-  var cols = (sheetName === SHEETS.RAW_DATA) ? COLUMNS.RAW_DATA : COLUMNS.CLEAN_DATA;
-  
   // Helper to get range for a column
   var getColRange = function(colName) {
-    var idx = cols.indexOf(colName);
-    if (idx === -1) return null;
-    return sheet.getRange(2, idx + 1, lastRow - 1, 1);
+    var colIndex = getColumnIndex(sheetName, colName);
+    if (colIndex === -1) return null;
+    return sheet.getRange(2, colIndex + 1, lastRow - 1, 1);
   };
   
   // Integer Format: "# ##0" (assuming thousand separator is desired for consistency)

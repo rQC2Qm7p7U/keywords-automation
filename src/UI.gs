@@ -135,6 +135,22 @@ function handleRunClustering() {
 }
 
 /**
+ * Handles the "Check Last Task" menu item.
+ */
+function handleCheckLastTask() {
+  try {
+    if (typeof manuallyCheckLastTask === 'function') {
+      manuallyCheckLastTask();
+    } else {
+      throw new Error("Функция manuallyCheckLastTask не найдена.");
+    }
+  } catch (e) {
+    console.error(e);
+    SpreadsheetApp.getUi().alert("Ошибка: " + e.message);
+  }
+}
+
+/**
  * Handles the "Set Arsenkin Token" menu item.
  * Prompts user for token and saves it securely.
  */

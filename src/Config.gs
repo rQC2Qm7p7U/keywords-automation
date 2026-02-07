@@ -90,6 +90,10 @@ var MENU = {
       functionName: "handleRunClustering"
     },
     {
+      caption: "7. Проверить статус последней задачи",
+      functionName: "handleCheckLastTask"
+    },
+    {
       caption: "🔐 Арсенкин: Установить токен",
       functionName: "handleSetArsenkinToken"
     }

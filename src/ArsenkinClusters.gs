@@ -455,6 +455,8 @@ function runClustering() {
   var taskId;
   try {
     taskId = createClusteringTask(keywords, settings);
+    // Save Task ID for recovery immediately
+    PropertiesService.getScriptProperties().setProperty("LAST_ARSENKIN_TASK_ID", taskId);
   } catch (e) {
     Browser.msgBox("Ошибка при создании задачи: " + e.message);
     return;
@@ -484,16 +486,62 @@ function runClustering() {
   }
   
   if (!result) {
-    Browser.msgBox("Превышено время ожидания результата (5 минут). Проверьте статус задачи в личном кабинете Arsenkin. ID задачи: " + taskId);
+    Browser.msgBox("Превышено время ожидания результата (5 минут). ID задачи: " + taskId + ". Вы можете проверить статус позже через меню.");
     return;
   }
   
-  // 5. Process Result and Update CLUSTERS Sheet
+  // 5. Process Result
+  processAndWriteClusters(result);
+}
+
+/**
+ * Manually checks the status of the last executed task.
+ * Useful if the script timed out.
+ */
+function manuallyCheckLastTask() {
+  var props = PropertiesService.getScriptProperties();
+  var lastTaskId = props.getProperty("LAST_ARSENKIN_TASK_ID");
+  
+  if (!lastTaskId) {
+    Browser.msgBox("Нет сохраненного ID последней задачи.");
+    return;
+  }
+  
+  var settings = null;
+  try {
+     settings = getApiSettings(); 
+  } catch (e) {
+     Browser.msgBox("Ошибка настроек: " + e.message);
+     return;
+  }
+  
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.toast("Проверка статуса задачи ID: " + lastTaskId);
+  
+  try {
+    var result = checkTaskStatus(lastTaskId, settings.API_TOKEN);
+    if (result) {
+      processAndWriteClusters(result);
+    } else {
+      Browser.msgBox("Задача " + lastTaskId + " еще не готова или произошла ошибка.");
+    }
+  } catch (e) {
+    Browser.msgBox("Ошибка при проверки: " + e.message);
+  }
+}
+
+/**
+ * Processes the clustering result and updates the sheet.
+ * Separated for reuse.
+ */
+function processAndWriteClusters(result) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // Process Result and Update CLUSTERS Sheet
   ss.toast("Результаты получены. Запись в лист Clusters...");
   
   var clustersSheet = ss.getSheetByName(SHEETS.CLUSTERS);
   if (!clustersSheet) {
-    // Should have been checked earlier, but just in case
     clustersSheet = ss.insertSheet(SHEETS.CLUSTERS);
   }
   
@@ -503,7 +551,6 @@ function runClustering() {
   }
   
   // Prepare output data
-  // Result format: [{ clustered: "Group Name", words: ["kw1", "kw2"], topurl: "url" }, ...]
   var outputRows = [];
   
   result.forEach(function(cluster) {
