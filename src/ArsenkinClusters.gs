@@ -159,111 +159,7 @@ function checkTaskStatus(taskId, token) {
   return null; // Still running
 }
 
-/**
- * Main function to run the clustering process.
- * Reads data from Clean Data, sends to API, waits for result, and updates the Clusters sheet.
- */
-function runClustering() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var cleanSheet = ss.getSheetByName(SHEETS.CLEAN_DATA);
-  var clustersSheet = ss.getSheetByName(SHEETS.CLUSTERS);
-  
-  if (!cleanSheet) throw new Error("Лист '" + SHEETS.CLEAN_DATA + "' не найден.");
-  if (!clustersSheet) throw new Error("Лист '" + SHEETS.CLUSTERS + "' не найден. Создайте структуру заново.");
-  
-  // 1. Get Settings and API Token
-  var settings = getApiSettings();
-  
-  // 2. Get Keywords from Clean Data
-  var lastRow = cleanSheet.getLastRow();
-  if (lastRow <= 1) {
-    Browser.msgBox("Нет данных для кластеризации в листе " + SHEETS.CLEAN_DATA);
-    return;
-  }
-  
-  var keywordIdx = COLUMNS.CLEAN_DATA.indexOf("Keyword");
-  var keywords = cleanSheet.getRange(2, keywordIdx + 1, lastRow - 1, 1).getValues()
-                           .map(function(r) { return r[0]; })
-                           .filter(function(k) { return k && String(k).trim() !== ""; });
-                           
-  if (keywords.length === 0) {
-    Browser.msgBox("Нет ключевых слов для кластеризации.");
-    return;
-  }
-  
-  if (keywords.length > 20000) { // Increased limit a bit, but still check
-     var confirm = Browser.msgBox("Внимание", "Вы отправляете " + keywords.length + " запросов. Продолжить?", Browser.Buttons.YES_NO);
-     if (confirm == "no") return;
-  }
-  
-  ss.toast("Отправка задачи в Arsenkin Tools...");
-  
-  // 3. Create Task
-  var taskId;
-  try {
-    taskId = createClusteringTask(keywords, settings);
-  } catch (e) {
-    Browser.msgBox("Ошибка при создании задачи: " + e.message);
-    return;
-  }
-  
-  ss.toast("Задача ID " + taskId + " создана. Ожидание результатов...");
-  
-  // 4. Poll for Result
-  var result = null;
-  var attempts = 0;
-  var maxAttempts = 60; // 5 min
-  
-  while (attempts < maxAttempts) {
-    Utilities.sleep(5000); 
-    try {
-      result = checkTaskStatus(taskId, settings.API_TOKEN);
-    } catch (e) {
-      console.error("Error checking status: " + e.message);
-    }
-    
-    if (result) break;
-    attempts++;
-    ss.toast("Обработка... (" + (attempts * 5) + " сек)");
-  }
-  
-  if (!result) {
-    Browser.msgBox("Превышено время ожидания результата (5 минут). ID задачи: " + taskId);
-    return;
-  }
-  
-  // 5. Process Result and Update CLUSTERS Sheet
-  ss.toast("Результаты получены. Запись в лист Clusters...");
-  
-  // Clear old clusters
-  if (clustersSheet.getLastRow() > 1) {
-    clustersSheet.getRange(2, 1, clustersSheet.getLastRow() - 1, 3).clearContent();
-  }
-  
-  // Prepare output data
-  // Result format: [{ clustered: "Group Name", words: ["kw1", "kw2"], topurl: "url" }, ...]
-  var outputRows = [];
-  
-  result.forEach(function(cluster) {
-    var groupName = cluster.clustered;
-    var groupUrl = cluster.topurl || "";
-    
-    if (cluster.words && Array.isArray(cluster.words)) {
-      cluster.words.forEach(function(kw) {
-          // Format: Keyword | Cluster Group | Cluster URL
-          outputRows.push([kw, groupName, groupUrl]);
-      });
-    }
-  });
-  
-  if (outputRows.length > 0) {
-    clustersSheet.getRange(2, 1, outputRows.length, 3).setValues(outputRows);
-  }
-  
-  clustersSheet.activate();
-  ss.toast("Кластеризация завершена!");
-  Browser.msgBox("Готово! Результаты в листе Clusters.");
-}
+
 
 /**
  * Main function to run the clustering process.
@@ -427,31 +323,56 @@ function runClustering() {
   // 1. Get Settings and API Token
   var settings = getApiSettings();
   
-  // 2. Get Keywords from Clean Data
-  var lastRow = cleanSheet.getLastRow();
-  if (lastRow <= 1) {
+  // 2. Get Keywords from Clean Data (Optimized Read)
+  var rawKeywords = getColumnValues(SHEETS.CLEAN_DATA, "Keyword");
+
+  if (!rawKeywords || rawKeywords.length === 0) {
     Browser.msgBox("Нет данных для кластеризации в листе " + SHEETS.CLEAN_DATA);
     return;
   }
   
-  var keywordIdx = COLUMNS.CLEAN_DATA.indexOf("Keyword");
-  var keywords = cleanSheet.getRange(2, keywordIdx + 1, lastRow - 1, 1).getValues()
-                           .map(function(r) { return r[0]; })
-                           .filter(function(k) { return k && String(k).trim() !== ""; });
-                           
+  // 3. Filter & Deduplicate (Cost Optimization)
+  var uniqueSet = new Set();
+  var keywords = [];
+  
+  rawKeywords.forEach(function(k) {
+    if (!k) return;
+    var str = String(k).trim();
+    if (str === "") return;
+    
+    // Validation: Ignore pure numbers or single chars (unless specific)
+    if (!/[a-zA-Zа-яА-Я]/.test(str)) {
+        return; 
+    }
+    
+    var lower = str.toLowerCase();
+    if (!uniqueSet.has(lower)) {
+      uniqueSet.add(lower);
+      keywords.push(str); // Keep original casing
+    }
+  });
+
   if (keywords.length === 0) {
-    Browser.msgBox("Нет ключевых слов для кластеризации.");
+    Browser.msgBox("Нет валидных ключевых слов для кластеризации (удалены пустые и дубликаты).");
     return;
   }
   
-  if (keywords.length > 10000) {
-     var confirm = Browser.msgBox("Внимание", "Вы пытаетесь кластеризовать " + keywords.length + " запросов. Это может занять много времени и лимитов. Продолжить?", Browser.Buttons.YES_NO);
+  var originalCount = rawKeywords.length;
+  var uniqueCount = keywords.length;
+  var skippedCount = originalCount - uniqueCount;
+  
+  if (skippedCount > 0) {
+    ss.toast("Оптимизация: пропущено " + skippedCount + " дублей/мусора.");
+  }
+  
+  if (keywords.length > 20000) {
+     var confirm = Browser.msgBox("Внимание", "Вы отправляете " + keywords.length + " уникальных запросов. Продолжить?", Browser.Buttons.YES_NO);
      if (confirm == "no") return;
   }
   
-  ss.toast("Отправка задачи в Arsenkin Tools...");
+  ss.toast("Отправка задачи в Arsenkin Tools (" + keywords.length + " шт)...");
   
-  // 3. Create Task
+  // 4. Create Task
   var taskId;
   try {
     taskId = createClusteringTask(keywords, settings);
