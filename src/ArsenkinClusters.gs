@@ -301,29 +301,48 @@ function runClustering() {
   
   ss.toast("Задача ID " + taskId + " создана. Ожидание результатов...");
   
-  // 4. Poll for Result
-  // Note: Apps Script runtime limit is 6 mins. Simple POLLING may timeout for huge tasks.
-  // For V1 we do simple polling.
+  // 4. Poll for Result with Graceful Timeout
   var result = null;
-  var attempts = 0;
-  var maxAttempts = 60; // 60 * 5 sec = 300 sec = 5 min
+  var isTimeout = false;
   
-  while (attempts < maxAttempts) {
-    Utilities.sleep(5000); // Wait 5 sec
+  while (true) {
+    // Check runtime (Google Limit is 6 min = 360000 ms)
+    // We stop at 5 min (300000 ms) to be safe
+    if (Date.now() - startTime > 300000) {
+      isTimeout = true;
+      break;
+    }
+    
+    Utilities.sleep(5000); 
+    
     try {
       result = checkTaskStatus(taskId, settings.API_TOKEN);
     } catch (e) {
-      console.error("Error checking status: " + e.message); // Log but continue retry
+      console.error("Error checking status: " + e.message);
+      // If error is 429 (Too Many Requests), wait longer
+      if (e.message.indexOf("429") !== -1) {
+         Utilities.sleep(10000);
+      }
     }
     
     if (result) break;
     
-    attempts++;
-    ss.toast("Обработка... (" + (attempts * 5) + " сек)");
+    var elapsed = Math.round((Date.now() - startTime) / 1000);
+    ss.toast("Обработка... " + elapsed + " сек (Лимит 300с)");
+  }
+  
+  if (isTimeout) {
+    Browser.msgBox("⏳ Время выполнения скрипта подходит к концу (5 минут).\n\n" +
+                   "Задача продолжает выполняться на сервере Arsenkin.\n" +
+                   "ID задачи: " + taskId + "\n\n" +
+                   "Пожалуйста, подождите 5-10 минут и нажмите кнопку:\n" +
+                   "'7. Проверить статус последней задачи' в меню.");
+    return;
   }
   
   if (!result) {
-    Browser.msgBox("Превышено время ожидания результата (5 минут). Проверьте статус задачи в личном кабинете Arsenkin. ID задачи: " + taskId);
+    // Should typically be caught by timeout, but just in case
+    Browser.msgBox("Не удалось получить результат. Проверьте статус задачи вручную. ID: " + taskId);
     return;
   }
   
