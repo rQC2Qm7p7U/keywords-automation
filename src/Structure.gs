@@ -90,10 +90,13 @@ function createStructure() {
         // We scan the processed list to find the exact string that will be in the dropdown
         const defaults = reorderedData.find(r => String(r[1]) === "213");
         if (defaults) {
-            defaultRegionName = defaults[0];
+            defaultRegionName = defaults[0]; // e.g. "Москва, ... | Moscow, ..."
+            // Set search default to first word of Russian name to ensure it appears in dropdown
+            defaultRegionSearch = "Москва"; 
         } else {
             // Fallback if 213 not found, pick first item or generic
             defaultRegionName = reorderedData.length > 0 ? reorderedData[0][0] : "213";
+            defaultRegionSearch = "";
         }
         
         // Auto-Resize sheet to fit data (prevent errors with >1000 rows)
@@ -102,6 +105,13 @@ function createStructure() {
         }
         
         regionsSheet.getRange(1, 1, reorderedData.length, 2).setValues(reorderedData);
+
+        // Add Filter Formula to D1 (Dependent Dropdown Logic)
+        // Filters Col A based on input in 'Ars API Set'!B3 (Search Cell)
+        // QUERY is robust. LIMIT 100 prevents lag.
+        // We reference the sheet by name.
+        const formula = `=IF(ISBLANK('${SHEETS.SETTINGS}'!B3); ARRAY_CONSTRAIN(A:A; 50; 1); QUERY(A:A; "Select A Where lower(A) contains '" & LOWER('${SHEETS.SETTINGS}'!B3) & "' Limit 50"))`;
+        regionsSheet.getRange("D1").setFormula(formula);
       }
     } catch (e) {
       regionsSheet.getRange(1, 1).setValue("Error loading regions: " + e.message);
@@ -119,9 +129,11 @@ function createStructure() {
     protectHeaderRow(settingsSheet);
     
     // Define Settings Rows
+    // Added "Region Search" row
     const settingsRows = [
       ["Search Engine", "Google", "Поисковая система"],
-      ["Region", defaultRegionName, "Регион поиска (выберите из списка)"],
+      ["Region Search", defaultRegionSearch, "Введите название города (например 'Mosc' или 'Моск')"],
+      ["Region", defaultRegionName, "Выберите регион из выпадающего списка (фильтруется по поиску)"],
       ["Group Type", "hard", "Тип группировки (soft/hard)"],
       ["Group Count", "3", "Степень группировки (2-10)"],
       ["Depth", "10", "Глубина проверки (10, 20, 30)"],
@@ -138,27 +150,30 @@ function createStructure() {
     const seRule = SpreadsheetApp.newDataValidation().requireValueInList(["Google", "Yandex"]).build();
     settingsSheet.getRange("B2").setDataValidation(seRule);
     
-    // 2. Region (B3) - from Ars Regions sheet
-    // Range covers all rows. Sort order in sheet determines dropdown order.
-    const regionRange = regionsSheet.getRange(1, 1, regionsSheet.getLastRow(), 1);
-    const regionRule = SpreadsheetApp.newDataValidation().requireValueInRange(regionRange).build();
-    settingsSheet.getRange("B3").setDataValidation(regionRule);
+    // 2. Region Search (B3) - Simple Input (No validation, but maybe a helpful note?)
+    // We leave it plain text for free typing.
+    
+    // 3. Region Select (B4) - Dependent Dropdown
+    // Points to the FILTERED list in Ars Regions!D1:D50
+    const filteredRange = regionsSheet.getRange("D1:D50");
+    const regionRule = SpreadsheetApp.newDataValidation().requireValueInRange(filteredRange).build();
+    settingsSheet.getRange("B4").setDataValidation(regionRule);
   
-  // 3. Group Type (B4)
+  // 4. Group Type (B5)
   const groupRule = SpreadsheetApp.newDataValidation().requireValueInList(["soft", "hard"]).build();
-  settingsSheet.getRange("B4").setDataValidation(groupRule);
+  settingsSheet.getRange("B5").setDataValidation(groupRule);
   
-  // 4. Group Count (B5)
+  // 5. Group Count (B6)
   const countRule = SpreadsheetApp.newDataValidation().requireValueInList(["2", "3", "4", "5", "6", "7", "8", "9", "10"]).build();
-  settingsSheet.getRange("B5").setDataValidation(countRule);
+  settingsSheet.getRange("B6").setDataValidation(countRule);
   
-  // 5. Depth (B6)
+  // 6. Depth (B7)
   const depthRule = SpreadsheetApp.newDataValidation().requireValueInList(["10", "20", "30"]).build();
-  settingsSheet.getRange("B6").setDataValidation(depthRule);
+  settingsSheet.getRange("B7").setDataValidation(depthRule);
   
-  // 6. Ignore Main (B7)
+  // 7. Ignore Main (B8)
   const boolRule = SpreadsheetApp.newDataValidation().requireCheckbox().build();
-  settingsSheet.getRange("B7").setDataValidation(boolRule);
+  settingsSheet.getRange("B8").setDataValidation(boolRule);
   
   // Auto-resize
   settingsSheet.autoResizeColumns(1, 3);
