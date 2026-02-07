@@ -488,73 +488,41 @@ function runClustering() {
     return;
   }
   
-  // 5. Process Result and Update Sheet
-  ss.toast("Результаты получены. Запись в таблицу...");
+  // 5. Process Result and Update CLUSTERS Sheet
+  ss.toast("Результаты получены. Запись в лист Clusters...");
   
-  // Result format: [{ clustered: "name", words: ["kw1", "kw2"] }, ...]
-  // We need to map keyword -> cluster name
-  var clusterMap = {};
-  var clusterUrlMap = {}; // Not sure if URL is provided in simple result, docs said "topurl"
+  var clustersSheet = ss.getSheetByName(SHEETS.CLUSTERS);
+  if (!clustersSheet) {
+    // Should have been checked earlier, but just in case
+    clustersSheet = ss.insertSheet(SHEETS.CLUSTERS);
+  }
+  
+  // Clear old clusters (keep headers)
+  if (clustersSheet.getLastRow() > 1) {
+    clustersSheet.getRange(2, 1, clustersSheet.getLastRow() - 1, clustersSheet.getLastColumn()).clearContent();
+  }
+  
+  // Prepare output data
+  // Result format: [{ clustered: "Group Name", words: ["kw1", "kw2"], topurl: "url" }, ...]
+  var outputRows = [];
   
   result.forEach(function(cluster) {
-    var clusterName = cluster.clustered;
-    var topUrl = cluster.topurl;
+    var groupName = cluster.clustered;
+    var groupUrl = cluster.topurl || "";
     
     if (cluster.words && Array.isArray(cluster.words)) {
       cluster.words.forEach(function(kw) {
-        clusterMap[kw.toLowerCase()] = clusterName;
-        // Also map URL if needed
-        if (topUrl) clusterUrlMap[kw.toLowerCase()] = topUrl;
+          // Format: Keyword | Cluster Group | Cluster URL
+          outputRows.push([kw, groupName, groupUrl]);
       });
     }
   });
   
-  // Write to Clean Data
-  // We need to write into "Cluster" and "Cluster URL" columns
-  var clusterColIdx = COLUMNS.CLEAN_DATA.indexOf("Cluster");
-  var clusterUrlColIdx = COLUMNS.CLEAN_DATA.indexOf("Cluster URL");
-  
-  if (clusterColIdx === -1) {
-    Browser.msgBox("Колонка 'Cluster' не найдена. Обновите структуру таблицы.");
-    return;
+  if (outputRows.length > 0) {
+    clustersSheet.getRange(2, 1, outputRows.length, 3).setValues(outputRows);
   }
   
-  var outputRange = cleanSheet.getRange(2, clusterColIdx + 1, lastRow - 1, 1);
-  var outputValues = outputRange.getValues(); // Current values (if any)
-  
-  // Prepare URL output if column exists
-  var outputUrls = null;
-  var outputUrlRange = null;
-  if (clusterUrlColIdx !== -1) {
-    outputUrlRange = cleanSheet.getRange(2, clusterUrlColIdx + 1, lastRow - 1, 1);
-    outputUrls = outputUrlRange.getValues();
-  }
-  
-  // Iterate original keywords to keep order
-  var fullKeywords = cleanSheet.getRange(2, keywordIdx + 1, lastRow - 1, 1).getValues();
-  
-  for (var i = 0; i < fullKeywords.length; i++) {
-    var kw = String(fullKeywords[i][0]).trim().toLowerCase();
-    if (clusterMap[kw]) {
-      outputValues[i][0] = clusterMap[kw];
-      if (outputUrls && clusterUrlMap[kw]) {
-        outputUrls[i][0] = clusterUrlMap[kw];
-      }
-    } else {
-        // If not found in clusters (maybe "Unclustered" logic needed? Or just leave empty/old)
-        // Usually unclustered words are returned in a separate group or implied.
-        // For now, overwrite with empty if we want to clean old data?
-        // Or keep existing? Let's overwrite to ensure data consistency with this run.
-        outputValues[i][0] = ""; 
-        if (outputUrls) outputUrls[i][0] = "";
-    }
-  }
-  
-  outputRange.setValues(outputValues);
-  if (outputUrls && outputUrlRange) {
-    outputUrlRange.setValues(outputUrls);
-  }
-  
+  clustersSheet.activate();
   ss.toast("Кластеризация завершена!");
-  Browser.msgBox("Готово! Кластеризация выполнена.");
+  Browser.msgBox("Готово! Результаты в листе Clusters.");
 }

@@ -156,24 +156,7 @@ function createStructure() {
   
   ss.toast(MESSAGES.SUCCESS.STRUCTURE_CREATED);
 }
-  // Position "Intent Types" at index 1
-  intentSheet.activate();
-  ss.moveActiveSheet(1);
-  
-  // Position "Raw Data" at index 2
-  rawDataSheet.activate();
-  ss.moveActiveSheet(2);
-  
-  // Position "Clean Data" at index 3
-  cleanDataSheet.activate();
-  ss.moveActiveSheet(3);
-  
-  // Switch back to the main sheet
-  intentSheet.activate();
-  
-  // Show success message
-  ss.toast(MESSAGES.SUCCESS.STRUCTURE_CREATED);
-}
+
 
 /**
  * Protects the first row (headers) of the given sheet.
