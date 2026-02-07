@@ -63,6 +63,11 @@ This project is a Google Apps Script application designed to automate the manage
 - **Performance**: 
   - **Region Selector**: Implements a "Search -> Filter -> Select" pattern to handle 41k+ rows instantly using `QUERY` formulas.
   - **Batch Operations**: All sheet reads/writes are batched to minimize API calls.
+- **Robustness**:
+  - **API Retries**: Implements exponential backoff strategy for network calls to handle transient errors (429/500).
+- **Maintainability**:
+  - **JSDoc**: All services are documented with JSDoc for better developer experience and type safety.
+  - **Centralized Config**: API URLs and Constants are strictly separated from logic.
 
 ## Extension Guide
 To add new features:
