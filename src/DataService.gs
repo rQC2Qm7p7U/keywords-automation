@@ -66,14 +66,34 @@ function transferRawToClean() {
     ];
     
     cleanData.push(newRow);
+    
+    // Update the original row array with parsed values for Raw Data update
+    // We need to preserve other columns in Raw Data if any, but valid Raw Data has fixed columns.
+    // Let's create a new row for Raw Data with parsed numbers.
+    // Config: "Keyword", "Currency", "Avg. monthly searches", ...
+    // Indices:
+    // keyword (0), searches (2), compIndex (6), bidLow (7), bidHigh (8) - Wait, let's check COLUMNS.RAW_DATA
+    
+    // Actually, let's just update the specific columns in Raw Data to avoid messing up others?
+    // Or just write back the whole row if we have all data.
+    // getSheetData returns all columns.
+    
+    // Let's update the row object reference (which is an array) directly with valid numbers
+    row[rawIdx.searches] = searches;
+    row[rawIdx.compIndex] = compIndex;
+    row[rawIdx.bidLow] = bidLow;
+    row[rawIdx.bidHigh] = bidHigh;
   });
   
   // 2. Write to Clean Sheet
   // Use SheetsService to helper
-  // We recreate the logic here to control formatting or use the generic update
   updateSheetData(SHEETS.CLEAN_DATA, cleanData);
   
-  // 3. Format Sheets (Raw and Clean)
+  // 3. Update Raw Sheet with parsed numbers (to fix formatting)
+  // We reused the 'rawData' array objects, modifying them in place above.
+  updateSheetData(SHEETS.RAW_DATA, rawData);
+  
+  // 4. Format Sheets (Raw and Clean)
   formatSheetColumns(rawSheet, SHEETS.RAW_DATA);
   formatSheetColumns(cleanSheet, SHEETS.CLEAN_DATA);
   
