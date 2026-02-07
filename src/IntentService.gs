@@ -70,14 +70,11 @@ function collectNegativeKeywords() {
   }
   
   // 3. Highlight Matches in other columns
-  // Columns to check: Transactional, Branded, Commercial, Local, Abbreviations
-  var checkColumns = [
-    "Transactional",
-    "Branded",
-    "Commercial",
-    "Local",
-    "Abbreviations"
-  ];
+  // Columns to check: All intent columns except "Negative" (and maybe "Site" if added later, but mostly intent buckets)
+  // We derive this dynamically from Config to ensure Single Source of Truth
+  var checkColumns = COLUMNS.INTENT_TYPES.filter(function(col) {
+    return col !== "Negative" && col !== "Site"; // Exclude specific non-intent columns if any
+  });
   
   var checkIndices = checkColumns.map(function(colName) {
     return COLUMNS.INTENT_TYPES.indexOf(colName);
@@ -203,13 +200,9 @@ function cleanKeysFromNegatives() {
   // Pre-compile regexes for performance if possible, but JS RegExp from string is fast enough
   // For whole word match: \bword\b
   // We need to escape special regex characters in the negative word
-  var escapeRegExp = function(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  };
-  
   var patterns = negativeWords.map(function(word) {
     // strict whole word matching
-    return new RegExp("\\b" + escapeRegExp(word) + "\\b", "i");
+    return new RegExp("\\b" + _escapeRegExp(word) + "\\b", "i");
   });
   
   cleanData.forEach(function(row) {
@@ -247,4 +240,11 @@ function cleanKeysFromNegatives() {
   }
   
   return removedCount;
+}
+
+/**
+ * Helper to escape special characters in regex string.
+ */
+function _escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
