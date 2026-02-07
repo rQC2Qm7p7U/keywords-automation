@@ -47,7 +47,6 @@ function collectNegativeKeywords() {
   // Convert to array and sort A-Z
   var sortedNegatives = Array.from(allNegatives).sort();
   
-  // 2. Update Intent Types "Negative" Column produces a single column array
   var intentSheet = ss.getSheetByName(SHEETS.INTENT_TYPES);
   if (!intentSheet) {
     throw new Error("Sheet not found: " + SHEETS.INTENT_TYPES);
@@ -57,11 +56,28 @@ function collectNegativeKeywords() {
   // Column number is index + 1
   var negativecolNum = intentNegativeIndex + 1;
   
+  // 1a. Read EXISTING Negatives from Intent Types
+  var existingNegatives = [];
+  var lastRow = intentSheet.getLastRow();
+  if (lastRow > 1) {
+    var range = intentSheet.getRange(2, negativecolNum, lastRow - 1, 1);
+    var values = range.getValues();
+    values.forEach(function(row) {
+      if (row[0]) {
+        var val = String(row[0]).trim().toLowerCase();
+        if (val) allNegatives.add(val);
+      }
+    });
+  }
+  
   // Clear existing negatives in Intent Types (preserve header)
-  var lastRow = intentSheet.getMaxRows();
+  // We will rewrite the full set
   if (lastRow > 1) {
     intentSheet.getRange(2, negativecolNum, lastRow - 1, 1).clearContent();
   }
+  
+  // Convert to array and sort A-Z
+  var sortedNegatives = Array.from(allNegatives).sort();
   
   // Write new negatives
   if (sortedNegatives.length > 0) {
