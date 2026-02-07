@@ -4,12 +4,6 @@
  * Documentation: https://help.arsenkin.ru/api/clustering-dev
  */
 
-const ARSENKIN_API = {
-  BASE_URL: "https://arsenkin.ru/api/tools/set", 
-  CHECK_URL: "https://arsenkin.ru/api/tools/check",
-  RESULT_URL: "https://arsenkin.ru/api/tools/get"
-};
-
 /**
  * Sets the API token in the script properties (Secure storage).
  * Called from UI prompt.
@@ -127,7 +121,7 @@ function createClusteringTask(queries, settings) {
     "muteHttpExceptions": true
   };
   
-  const response = UrlFetchApp.fetch(ARSENKIN_API.BASE_URL, options);
+  const response = fetchWithRetry(API.ARSENKIN.BASE_URL, options);
   const json = JSON.parse(response.getContentText());
   
   if (json.error) throw new Error("Ошибка API (Создание): " + JSON.stringify(json));
@@ -140,14 +134,14 @@ function createClusteringTask(queries, settings) {
  * @return {string} Status "Done", "Processing", "Error"
  */
 function checkTaskStatus(taskId, token) {
-  const url = `${ARSENKIN_API.CHECK_URL}?task_id=${taskId}`;
+  const url = `${API.ARSENKIN.CHECK_URL}?task_id=${taskId}`;
   const options = {
     "method": "get",
     "headers": { "Authorization": "Bearer " + token },
     "muteHttpExceptions": true
   };
   
-  const response = UrlFetchApp.fetch(url, options);
+  const response = fetchWithRetry(url, options);
   const json = JSON.parse(response.getContentText());
   
   if (json.error) return "Error";
@@ -158,14 +152,14 @@ function checkTaskStatus(taskId, token) {
  * Retrieves the result of a completed task.
  */
 function getTaskResult(taskId, token) {
-  const url = `${ARSENKIN_API.RESULT_URL}?task_id=${taskId}`;
+  const url = `${API.ARSENKIN.RESULT_URL}?task_id=${taskId}`;
   const options = {
     "method": "get",
     "headers": { "Authorization": "Bearer " + token },
     "muteHttpExceptions": true
   };
   
-  const response = UrlFetchApp.fetch(url, options);
+  const response = fetchWithRetry(url, options);
   const json = JSON.parse(response.getContentText());
   
   if (json.error) throw new Error("Error fetching result: " + JSON.stringify(json));
@@ -348,4 +342,48 @@ function processAndWriteClusters(result) {
   
   clustersSheet.activate();
   ss.toast("Готово!");
+}
+
+/**
+ * Executes a URL fetch with exponential backoff for robust error handling.
+ * @param {string} url - The URL to fetch.
+ * @param {Object} options - The fetch options.
+ * @param {number} retries - Number of retries (default 3).
+ * @return {HTTPResponse} The response from UrlFetchApp.
+ */
+function fetchWithRetry(url, options, retries = 3) {
+  let attempt = 0;
+  let lastError;
+  
+  while (attempt <= retries) {
+    try {
+      const response = UrlFetchApp.fetch(url, options);
+      const code = response.getResponseCode();
+      
+      // If success (200-299), return
+      if (code >= 200 && code < 300) {
+        return response;
+      }
+      
+      // If client error (4xx) NOT 429, don't retry (except maybe 429 too, depends on API)
+      if (code >= 400 && code < 500 && code !== 429) {
+          throw new Error(`Client Error (${code}): ${response.getContentText()}`);
+      }
+      
+      // If 429 (Rate Limit) or 500+ (Server error), throw to trigger catch block for retry
+      throw new Error(`Server/Rate Limit Error (${code})`);
+      
+    } catch (e) {
+      lastError = e;
+      attempt++;
+      if (attempt > retries) break;
+      
+      // Exponential Backoff: 1s, 2s, 4s...
+      const sleepTime = Math.pow(2, attempt - 1) * 1000;
+      console.warn(`Fetch Failed (Attempt ${attempt}): ${e.message}. Retrying in ${sleepTime}ms...`);
+      Utilities.sleep(sleepTime);
+    }
+  }
+  
+  throw lastError;
 }
