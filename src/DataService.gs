@@ -97,6 +97,10 @@ function transferRawToClean() {
   formatSheetColumns(rawSheet, SHEETS.RAW_DATA);
   formatSheetColumns(cleanSheet, SHEETS.CLEAN_DATA);
   
+  // 5. Reset Backgrounds in Negative column of Clean Data
+  // As requested by user, transfer should also reset the negative column highlights in Clean Data
+  clearColumnBackgroundByName(SHEETS.CLEAN_DATA, "Negative");
+  
   return cleanData.length;
 }
 

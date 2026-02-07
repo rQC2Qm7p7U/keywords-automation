@@ -71,3 +71,33 @@ function updateSheetData(sheetName, data) {
     sheet.getRange(2, 1, data.length, data[0].length).setValues(data);
   }
 }
+
+/**
+ * Clears the background color of a specific column by name.
+ * Looks up the column index from the sheet's configuration.
+ *
+ * @param {string} sheetName - The name of the sheet.
+ * @param {string} colName - The name of the column header.
+ */
+function clearColumnBackgroundByName(sheetName, colName) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(sheetName);
+  
+  if (!sheet) return;
+  
+  var cols = null;
+  if (sheetName === SHEETS.RAW_DATA) cols = COLUMNS.RAW_DATA;
+  if (sheetName === SHEETS.CLEAN_DATA) cols = COLUMNS.CLEAN_DATA;
+  if (sheetName === SHEETS.INTENT_TYPES) cols = COLUMNS.INTENT_TYPES;
+  
+  if (!cols) return;
+  
+  var colIndex = cols.indexOf(colName);
+  if (colIndex === -1) return;
+  
+  var maxRows = sheet.getMaxRows();
+  if (maxRows > 1) {
+    // Column index + 1 for 1-based index
+    sheet.getRange(2, colIndex + 1, maxRows - 1, 1).setBackground(null);
+  }
+}

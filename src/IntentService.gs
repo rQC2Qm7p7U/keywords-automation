@@ -241,14 +241,7 @@ function cleanKeysFromNegatives() {
     // 5. Reset Backgrounds in "Negative" column
     // Since we filtered data, previous highlights might be misleading or misaligned.
     // The user requested to "reset painted cells".
-    var negColIndex = COLUMNS.CLEAN_DATA.indexOf("Negative");
-    if (negColIndex !== -1) {
-      var maxRows = cleanSheet.getMaxRows();
-      if (maxRows > 1) {
-        // Clear background for the entire column data range
-        cleanSheet.getRange(2, negColIndex + 1, maxRows - 1, 1).setBackground(null);
-      }
-    }
+    clearColumnBackgroundByName(SHEETS.CLEAN_DATA, "Negative");
   }
   
   return removedCount;
