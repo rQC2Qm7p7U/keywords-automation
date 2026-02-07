@@ -8,96 +8,129 @@ var ARSENKIN_API = {
   // Updated per user documentation
   BASE_URL: "https://arsenkin.ru/api/tools/set", 
   CHECK_URL: "https://arsenkin.ru/api/tools/check",
-  RESULT_URL: "https://arsenkin.ru/api/tools/result" // Usually result is monitoring/check, but sticking to flow
+  RESULT_URL: "https://arsenkin.ru/api/tools/get"
 };
-// ... (lines 13-90 same)
 
-function createClusteringTask(queries, settings) {
-  var payload = {
-    "tools_name": "clustering", // Required field per docs
-    "data": { // ...
-      "queries": queries,
-      "group": settings.GROUP_TYPE || "hard",
-       // ... existing
-    }
-    // ...
-  };
-  
-  // URL: https://arsenkin.ru/api/tools/set
-  var response = UrlFetchApp.fetch(ARSENKIN_API.BASE_URL, options);
+// ...
+
+function getApiSettings() {
+  // ...
+  // Fix boolean parsing
+  if (key == "Ignore Main Page") settings.IGNORE_MAIN_PAGE = String(val).toLowerCase() === "true";
   // ...
 }
 
-// ...
+function createClusteringTask(queries, settings) {
+  var payload = {
+    "tools_name": "clustering", 
+    "data": {
+      "queries": queries,
+      "group": settings.GROUP_TYPE || "hard",
+      "count": Number(settings.GROUP_COUNT) || 3,
+      "main": settings.IGNORE_MAIN_PAGE === true, // Already boolean from getApiSettings
+      "se": Number(settings.SE) || 2, 
+      "region": Number(settings.REGION) || 213,
+      "depth": Number(settings.DEPTH) || 10
+    }
+  };
+  // ...
+}
+
+/**
+ * Checks the status of a task.
+ * @return {string} Status string: "Done", "Processing", "Error", or undefined.
+ */
+function checkTaskStatus(taskId, token) {
+  var url = ARSENKIN_API.CHECK_URL + "?task_id=" + taskId;
+  
+  var options = {
+    "method": "get",
+    "headers": { "Authorization": "Bearer " + token },
+    "muteHttpExceptions": true
+  };
+  
+  var response = UrlFetchApp.fetch(url, options);
+  var json = JSON.parse(response.getContentText());
+  
+  if (json.error) {
+    // Some API errors might be temporary
+    console.warn("API Warning (Check): " + JSON.stringify(json));
+    return "Error"; 
+  }
+  
+  return json.status;
+}
+
+/**
+ * Retrieves the result of a completed task.
+ */
+function getTaskResult(taskId, token) {
+  var url = ARSENKIN_API.RESULT_URL + "?task_id=" + taskId;
+  
+  var options = {
+    "method": "get",
+    "headers": { "Authorization": "Bearer " + token },
+    "muteHttpExceptions": true
+  };
+  
+  var response = UrlFetchApp.fetch(url, options);
+  var json = JSON.parse(response.getContentText());
+  
+  if (json.error) {
+     throw new Error("Ошибка при получении результата: " + JSON.stringify(json));
+  }
+  
+  return json.result || json; // Handle flexible return
+}
 
 function runClustering() {
   // ... (setup) ...
   
-  var startTime = Date.now();
-  
-  // ... (get keywords, validation) ...
-  
-  ss.toast("Отправка задачи в Arsenkin Tools (" + keywords.length + " шт)...");
-  
-  // Create Task
-  var taskId;
-  try {
-    taskId = createClusteringTask(keywords, settings);
-    PropertiesService.getScriptProperties().setProperty("LAST_ARSENKIN_TASK_ID", taskId);
-  } catch (e) {
-    Browser.msgBox("Ошибка при создании задачи: " + e.message);
-    return;
-  }
-  
-  ss.toast("Задача ID " + taskId + " создана. Ожидание результатов...");
-  
-  // 4. Poll for Result with Graceful Timeout
-  var result = null;
-  var isTimeout = false;
-  
-  while (true) {
-    // Check runtime (Google Limit is 6 min = 360000 ms)
-    // We stop at 5 min (300000 ms) to be safe
-    if (Date.now() - startTime > 300000) {
-      isTimeout = true;
-      break;
-    }
-    
-    Utilities.sleep(5000); 
-    
+  // ... (while true loop) ...
+    var status = null;
     try {
-      result = checkTaskStatus(taskId, settings.API_TOKEN);
+      status = checkTaskStatus(taskId, settings.API_TOKEN);
     } catch (e) {
-      console.error("Error checking status: " + e.message);
-      // If error is 429 (Too Many Requests), wait longer
-      if (e.message.indexOf("429") !== -1) {
-         Utilities.sleep(10000);
-      }
+      console.error(e);
     }
     
-    if (result) break;
+    if (status === "Done") {
+      try {
+         result = getTaskResult(taskId, settings.API_TOKEN);
+         break;
+      } catch (e) {
+         Browser.msgBox("Ошибка получения результата: " + e.message);
+         return;
+      }
+    } else if (status === "Error") {
+       Browser.msgBox("Задача завершилась с ошибкой на сервере.");
+       return;
+    }
     
-    var elapsed = Math.round((Date.now() - startTime) / 1000);
-    ss.toast("Обработка... " + elapsed + " сек (Лимит 300с)");
-  }
+    // ... (sleep) ...
+  // ...
   
   if (isTimeout) {
-    Browser.msgBox("⏳ Время выполнения скрипта подходит к концу (5 минут).\n\n" +
-                   "Задача продолжает выполняться на сервере Arsenkin.\n" +
-                   "ID задачи: " + taskId + "\n\n" +
-                   "Пожалуйста, подождите 5-10 минут и нажмите кнопку:\n" +
-                   "'7. Проверить статус последней задачи' в меню.");
-    return;
+     // ...
   }
   
-  if (!result) {
-    // Should typically be caught by timeout, but just in case
-    Browser.msgBox("Не удалось получить результат. Проверьте статус вручную.");
-    return;
+  if (!result) { // ...
   }
   
-  // 5. Process Result
   processAndWriteClusters(result);
+}
+
+function manuallyCheckLastTask() {
+  // ...
+  var status = checkTaskStatus(lastTaskId, settings.API_TOKEN);
+  
+  if (status === "Done") {
+     var result = getTaskResult(lastTaskId, settings.API_TOKEN);
+     processAndWriteClusters(result);
+  } else {
+     Browser.msgBox("Статус задачи: " + status);
+  }
+  // ...
 }
 
 /**
