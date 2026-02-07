@@ -110,7 +110,8 @@ function createStructure() {
         // Filters Col A based on input in 'Ars API Set'!B3 (Search Cell)
         // QUERY is robust. LIMIT 100 prevents lag.
         // We reference the sheet by name.
-        const formula = `=IF(ISBLANK('${SHEETS.SETTINGS}'!B3); ARRAY_CONSTRAIN(A:A; 50; 1); QUERY(A:A; "Select A Where lower(A) contains '" & LOWER('${SHEETS.SETTINGS}'!B3) & "' Limit 50"))`;
+        // NOTE: setFormula requires US syntax (comma separators), even if user locale uses semicolons.
+        const formula = `=IF(ISBLANK('${SHEETS.SETTINGS}'!B3), ARRAY_CONSTRAIN(A:A, 50, 1), QUERY(A:A, "Select A Where lower(A) contains '" & LOWER('${SHEETS.SETTINGS}'!B3) & "' Limit 50"))`;
         regionsSheet.getRange("D1").setFormula(formula);
       }
     } catch (e) {
