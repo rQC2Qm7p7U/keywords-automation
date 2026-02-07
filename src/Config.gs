@@ -23,9 +23,8 @@ var COLUMNS = {
     "Branded",
     "Commercial",
     "Local",
-    "Negative",
     "Abbreviations",
-    "Site"
+    "Negative"
   ],
   RAW_DATA: [
     "Keyword",
@@ -60,6 +59,10 @@ var MENU = {
     {
       caption: "2. Удалить дубликаты (Raw/Clean)",
       functionName: "handleRemoveDuplicates"
+    },
+    {
+      caption: "3. Собрать минуса (Intent Types)",
+      functionName: "handleCollectNegatives"
     }
   ]
 };

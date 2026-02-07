@@ -25,7 +25,12 @@
 Произойдет очистка таблицы и создание двух новых листов:
 
 1. **"Intent Types"** (первая вкладка):
-   - Transactional, Branded, Commercial, Local, Negative, Abbreviations, Site
+   - Transactional
+   - Branded
+   - Commercial
+   - Local
+   - Abbreviations
+   - Negative
 
 2. **"Raw Data"** (вторая вкладка) — лист для сырых данных:
    - Keyword
@@ -35,7 +40,6 @@
    - Изменение за год
    - Competition
    - Competition index
-   - Bid Low
    - Bid Low
    - Bid High
    - Negative

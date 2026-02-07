@@ -75,3 +75,17 @@ function handleRemoveDuplicates() {
   }
 }
 
+/**
+ * Handles the "Collect Negatives" menu item click.
+ * Collects negatives from Raw/Clean data and updates Intent Types.
+ */
+function handleCollectNegatives() {
+  try {
+    var count = collectNegativeKeywords();
+    SpreadsheetApp.getActiveSpreadsheet().toast("Собрано минус-слов: " + count);
+  } catch (e) {
+    var ui = SpreadsheetApp.getUi();
+    ui.alert("Ошибка: " + e.message);
+    console.error(e);
+  }
+}
