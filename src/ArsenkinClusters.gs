@@ -218,8 +218,8 @@ function createClusteringTask(queries, settings) {
       "queries": queries,
       "group": settings.GROUP_TYPE || "hard",
       "count": Number(settings.GROUP_COUNT) || 3,
-      "main": String(settings.IGNORE_MAIN_PAGE) === "true", // Boolean
-      "se": Number(settings.SE) || 2, // Default Google
+      "main": settings.IGNORE_MAIN_PAGE === true, 
+      "se": Number(settings.SE) || 2, 
       "region": Number(settings.REGION) || 213,
       "depth": Number(settings.DEPTH) || 10
     }
@@ -228,9 +228,7 @@ function createClusteringTask(queries, settings) {
   var options = {
     "method": "post",
     "contentType": "application/json",
-    "headers": {
-      "Authorization": "Bearer " + settings.API_TOKEN
-    },
+    "headers": { "Authorization": "Bearer " + settings.API_TOKEN },
     "payload": JSON.stringify(payload),
     "muteHttpExceptions": true
   };
@@ -238,48 +236,39 @@ function createClusteringTask(queries, settings) {
   var response = UrlFetchApp.fetch(ARSENKIN_API.BASE_URL, options);
   var json = JSON.parse(response.getContentText());
   
-  if (json.error) {
-    throw new Error("Ошибка API (Создание задачи): " + JSON.stringify(json));
-  }
-  
-  if (!json.task_id) {
-    throw new Error("Не получен ID задачи от API. Ответ: " + JSON.stringify(json));
-  }
-  
+  if (json.error) throw new Error("Ошибка API: " + JSON.stringify(json));
+  if (!json.task_id) throw new Error("Не получен ID задачи.");
   return json.task_id;
 }
 
-/**
- * Checks the status of a task.
- * @return {Object|null} Result data or null.
- */
 function checkTaskStatus(taskId, token) {
-  var url = "https://arsenkin.ru/api/tools/check?task_id=" + taskId;
-  
+  var url = ARSENKIN_API.CHECK_URL + "?task_id=" + taskId;
   var options = {
     "method": "get",
-    "headers": {
-      "Authorization": "Bearer " + token
-    },
+    "headers": { "Authorization": "Bearer " + token },
     "muteHttpExceptions": true
   };
   
   var response = UrlFetchApp.fetch(url, options);
   var json = JSON.parse(response.getContentText());
   
-  if (json.error) {
-    throw new Error("Ошибка API (Проверка статуса): " + JSON.stringify(json));
-  }
+  if (json.error) return "Error";
+  return json.status;
+}
+
+function getTaskResult(taskId, token) {
+  var url = ARSENKIN_API.RESULT_URL + "?task_id=" + taskId;
+  var options = {
+    "method": "get",
+    "headers": { "Authorization": "Bearer " + token },
+    "muteHttpExceptions": true
+  };
   
-  if (json.status === "Done") {
-     return json.result; // Array of clusters
-  }
+  var response = UrlFetchApp.fetch(url, options);
+  var json = JSON.parse(response.getContentText());
   
-  if (json.status === "Error") {
-      throw new Error("Задача завершилась ошибкой на сервере Arsenkin.");
-  }
-  
-  return null; // Still running
+  if (json.error) throw new Error("Error fetching result: " + JSON.stringify(json));
+  return json.result || json; 
 }
 
 
@@ -527,29 +516,60 @@ function runClustering() {
   
   ss.toast("Задача ID " + taskId + " создана. Ожидание результатов...");
   
-  // 4. Poll for Result
-  // Note: Apps Script runtime limit is 6 mins. Simple POLLING may timeout for huge tasks.
-  // For V1 we do simple polling.
+  // 4. Poll for Result with Graceful Timeout
   var result = null;
-  var attempts = 0;
-  var maxAttempts = 60; // 60 * 5 sec = 300 sec = 5 min
+  var isTimeout = false;
   
-  while (attempts < maxAttempts) {
-    Utilities.sleep(5000); // Wait 5 sec
-    try {
-      result = checkTaskStatus(taskId, settings.API_TOKEN);
-    } catch (e) {
-      console.error("Error checking status: " + e.message); // Log but continue retry
+  while (true) {
+    // Check runtime (Google Limit is 6 min = 360000 ms)
+    // We stop at 5 min (300000 ms) to be safe
+    if (Date.now() - startTime > 300000) {
+      isTimeout = true;
+      break;
     }
     
-    if (result) break;
+    Utilities.sleep(5000); 
     
-    attempts++;
-    ss.toast("Обработка... (" + (attempts * 5) + " сек)");
+    try {
+      var status = checkTaskStatus(taskId, settings.API_TOKEN);
+      
+      if (status === "Done") {
+         try {
+           result = getTaskResult(taskId, settings.API_TOKEN);
+         } catch (e) {
+           console.error("Error fetching result: " + e.message);
+           Browser.msgBox("Ошибка получения результата: " + e.message);
+           return;
+         }
+         break;
+      } else if (status === "Error") {
+         Browser.msgBox("Задача завершилась с ошибкой на сервере Arsenkin.");
+         return;
+      }
+      
+    } catch (e) {
+      console.error("Error checking status: " + e.message);
+      if (e.message && e.message.indexOf("429") !== -1) {
+         Utilities.sleep(10000);
+      }
+    }
+    
+    var elapsed = Math.round((Date.now() - startTime) / 1000);
+    ss.toast("Обработка... " + elapsed + " сек (Лимит 300с)");
+  }
+  
+  if (isTimeout) {
+    Browser.msgBox("⏳ Время выполнения скрипта подходит к концу (5 минут).\n\n" +
+                   "Задача продолжает выполняться на сервере Arsenkin.\n" +
+                   "ID задачи: " + taskId + "\n\n" +
+                   "Пожалуйста, подождите 5-10 минут и нажмите кнопку:\n" +
+                   "'7. Проверить статус последней задачи' в меню.");
+    return;
   }
   
   if (!result) {
-    Browser.msgBox("Превышено время ожидания результата (5 минут). ID задачи: " + taskId + ". Вы можете проверить статус позже через меню.");
+    // Should typically be caught by timeout, but just in case
+    Browser.msgBox("Не удалось получить результат. Проверьте статус задачи вручную. ID: " + taskId);
     return;
   }
   
@@ -582,11 +602,15 @@ function manuallyCheckLastTask() {
   ss.toast("Проверка статуса задачи ID: " + lastTaskId);
   
   try {
-    var result = checkTaskStatus(lastTaskId, settings.API_TOKEN);
-    if (result) {
+    var status = checkTaskStatus(lastTaskId, settings.API_TOKEN);
+    
+    if (status === "Done") {
+      var result = getTaskResult(lastTaskId, settings.API_TOKEN);
       processAndWriteClusters(result);
+    } else if (status === "Error") {
+      Browser.msgBox("Задача завершилась ошибкой.");
     } else {
-      Browser.msgBox("Задача " + lastTaskId + " еще не готова или произошла ошибка.");
+      Browser.msgBox("Задача еще выполняется. Статус: " + (status || "Unknown"));
     }
   } catch (e) {
     Browser.msgBox("Ошибка при проверки: " + e.message);
