@@ -60,53 +60,80 @@ function createStructure() {
   clustersSheet.setFrozenRows(1);
   protectHeaderRow(clustersSheet);
 
-  // 7. Create "Ars Regions" sheet (Hidden)
-  const regionsSheet = ss.insertSheet(SHEETS.REGIONS);
-  try {
-    const csvContent = UrlFetchApp.fetch("https://arsenkin.ru/google_regions.csv").getContentText();
-    const csvData = Utilities.parseCsv(csvContent);
-    if (csvData.length > 0) {
-      regionsSheet.getRange(1, 1, csvData.length, csvData[0].length).setValues(csvData);
+    // 7. Create "Ars Regions" sheet (Hidden)
+    const regionsSheet = ss.insertSheet(SHEETS.REGIONS);
+    let defaultRegionName = "Москва, Россия"; // Fallback
+    
+    try {
+      const csvContent = UrlFetchApp.fetch("https://arsenkin.ru/google_regions.csv").getContentText();
+      const csvData = Utilities.parseCsv(csvContent);
+      // CSV Structure: ID, EnName, RuName. Example: 1001493,"Minsk...","Минск..."
+      // We want: RuName, ID.
+      
+      if (csvData.length > 0) {
+        // Prepare reordered data
+        const reorderedData = csvData.map(row => {
+          // Ensure we have at least 3 columns. If not, fallback.
+          // row[0] = ID, row[2] = RuName.
+          const id = row[0];
+          const name = (row.length > 2 && row[2]) ? row[2] : (row[1] || id); 
+          
+          // Capture default name for ID 213 (Moscow)
+          if (String(id) === "213") {
+            defaultRegionName = name;
+          }
+          
+          return [name, id];
+        });
+        
+        // Auto-Resize sheet if data exceeds default 1000 rows
+        if (regionsSheet.getMaxRows() < reorderedData.length) {
+          regionsSheet.insertRowsAfter(regionsSheet.getMaxRows(), reorderedData.length - regionsSheet.getMaxRows());
+        }
+        
+        regionsSheet.getRange(1, 1, reorderedData.length, 2).setValues(reorderedData);
+      }
+    } catch (e) {
+      regionsSheet.getRange(1, 1).setValue("Error loading regions: " + e.message);
     }
-  } catch (e) {
-    regionsSheet.getRange(1, 1).setValue("Error loading regions: " + e.message);
-  }
-  regionsSheet.hideSheet();
-
-  // 8. Create "Ars API Set" sheet
-  const settingsSheet = ss.insertSheet(SHEETS.SETTINGS);
+    regionsSheet.hideSheet();
   
-  // Setup columns
-  const settingsHeaders = COLUMNS.SETTINGS;
-  settingsSheet.getRange(1, 1, 1, settingsHeaders.length).setValues([settingsHeaders]);
-  settingsSheet.getRange(1, 1, 1, settingsHeaders.length).setFontWeight("bold");
-  settingsSheet.setFrozenRows(1);
-  protectHeaderRow(settingsSheet);
+    // 8. Create "Ars API Set" sheet
+    const settingsSheet = ss.insertSheet(SHEETS.SETTINGS);
+    
+    // Setup columns
+    const settingsHeaders = COLUMNS.SETTINGS;
+    settingsSheet.getRange(1, 1, 1, settingsHeaders.length).setValues([settingsHeaders]);
+    settingsSheet.getRange(1, 1, 1, settingsHeaders.length).setFontWeight("bold");
+    settingsSheet.setFrozenRows(1);
+    protectHeaderRow(settingsSheet);
+    
+    // Define Settings Rows
+    const settingsRows = [
+      ["Search Engine", "Google", "Поисковая система"],
+      ["Region", defaultRegionName, "Регион поиска (выберите из списка)"],
+      ["Group Type", "hard", "Тип группировки (soft/hard)"],
+      ["Group Count", "3", "Степень группировки (2-10)"],
+      ["Depth", "10", "Глубина проверки (10, 20, 30)"],
+      ["Ignore Main Page", "true", "Исключать главные страницы"],
+      ["API Token Status", "Not Set", "Статус токена (меняется через меню)"]
+    ];
   
-  // Define Settings Rows
-  const settingsRows = [
-    ["Search Engine", "Google", "Поисковая система"],
-    ["Region", "213", "Регион поиска (выберите из списка)"],
-    ["Group Type", "hard", "Тип группировки (soft/hard)"],
-    ["Group Count", "3", "Степень группировки (2-10)"],
-    ["Depth", "10", "Глубина проверки (10, 20, 30)"],
-    ["Ignore Main Page", "true", "Исключать главные страницы"],
-    ["API Token Status", "Not Set", "Статус токена (меняется через меню)"]
-  ];
-  
-  const startRow = 2;
-  settingsSheet.getRange(startRow, 1, settingsRows.length, 3).setValues(settingsRows);
-  
-  // --- DATA VALIDATION ---
-  
-  // 1. Search Engine (B2)
-  const seRule = SpreadsheetApp.newDataValidation().requireValueInList(["Google", "Yandex"]).build();
-  settingsSheet.getRange("B2").setDataValidation(seRule);
-  
-  // 2. Region (B3) - from Ars Regions sheet
-  const regionRange = regionsSheet.getRange(2, 1, regionsSheet.getLastRow() - 1, 1);
-  const regionRule = SpreadsheetApp.newDataValidation().requireValueInRange(regionRange).build();
-  settingsSheet.getRange("B3").setDataValidation(regionRule);
+    const startRow = 2;
+    settingsSheet.getRange(startRow, 1, settingsRows.length, 3).setValues(settingsRows);
+    
+    // --- DATA VALIDATION ---
+    
+    // 1. Search Engine (B2)
+    const seRule = SpreadsheetApp.newDataValidation().requireValueInList(["Google", "Yandex"]).build();
+    settingsSheet.getRange("B2").setDataValidation(seRule);
+    
+    // 2. Region (B3) - from Ars Regions sheet
+    // Col A is now Russian Name (thanks to reordering above with [Name, ID])
+    // We start from row 1 because Arsenkin CSV usually has no header, just data.
+    const regionRange = regionsSheet.getRange(1, 1, regionsSheet.getLastRow(), 1);
+    const regionRule = SpreadsheetApp.newDataValidation().requireValueInRange(regionRange).build();
+    settingsSheet.getRange("B3").setDataValidation(regionRule);
   
   // 3. Group Type (B4)
   const groupRule = SpreadsheetApp.newDataValidation().requireValueInList(["soft", "hard"]).build();
