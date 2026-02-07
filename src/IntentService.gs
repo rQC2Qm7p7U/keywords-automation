@@ -160,3 +160,91 @@ function highlightSourceNegatives(sheetName, colName, processedSet) {
     range.setBackgrounds(backgrounds);
   }
 }
+
+/**
+ * Removes rows from Clean Data if the Keyword contains any negative keyword
+ * from the Intent Types sheet.
+ * Uses whole-word matching to avoid false positives.
+ */
+function cleanKeysFromNegatives() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // 1. Get Negatives from Intent Types
+  var intentSheet = ss.getSheetByName(SHEETS.INTENT_TYPES);
+  if (!intentSheet) throw new Error("Sheet not found: " + SHEETS.INTENT_TYPES);
+  
+  var negColIndex = COLUMNS.INTENT_TYPES.indexOf("Negative");
+  if (negColIndex === -1) throw new Error("Negative column not found in Intent Types");
+  
+  var lastRow = intentSheet.getLastRow();
+  var negativeWords = [];
+  
+  if (lastRow > 1) {
+    var negValues = intentSheet.getRange(2, negColIndex + 1, lastRow - 1, 1).getValues();
+    negValues.forEach(function(r) {
+      var val = String(r[0]).trim().toLowerCase();
+      if (val) negativeWords.push(val);
+    });
+  }
+  
+  if (negativeWords.length === 0) return 0;
+  
+  // 2. Get Clean Data
+  var cleanData = getSheetData(SHEETS.CLEAN_DATA);
+  if (!cleanData || cleanData.length === 0) return 0;
+  
+  var keywordIdx = COLUMNS.CLEAN_DATA.indexOf("Keyword");
+  if (keywordIdx === -1) throw new Error("Keyword column not found in Clean Data");
+  
+  // 3. Filter Data
+  var filteredData = [];
+  var removedCount = 0;
+  
+  // Pre-compile regexes for performance if possible, but JS RegExp from string is fast enough
+  // For whole word match: \bword\b
+  // We need to escape special regex characters in the negative word
+  var escapeRegExp = function(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  };
+  
+  var patterns = negativeWords.map(function(word) {
+    // strict whole word matching
+    return new RegExp("\\b" + escapeRegExp(word) + "\\b", "i");
+  });
+  
+  cleanData.forEach(function(row) {
+    var keyword = String(row[keywordIdx]).trim();
+    
+    var isNegative = false;
+    for (var i = 0; i < patterns.length; i++) {
+      if (patterns[i].test(keyword)) {
+        isNegative = true;
+        break;
+      }
+    }
+    
+    if (isNegative) {
+      removedCount++;
+    } else {
+      filteredData.push(row);
+    }
+  });
+  
+  // 4. Update Clean Data
+  if (removedCount > 0) {
+    updateSheetData(SHEETS.CLEAN_DATA, filteredData);
+    // Re-apply formatting since updateSheetData clears content/formatting mostly
+    // We should probably explicitly re-apply formatting
+    var cleanSheet = ss.getSheetByName(SHEETS.CLEAN_DATA);
+    // SheetsService.updateSheetData handles data, but we need to re-apply number formats
+    // Fortunately we have DataService.formatSheetColumns but it is in another file. 
+    // We can call it if it's global (it is).
+    // Or we can rely on unit tests.
+    // Let's assume global availability.
+    if (typeof formatSheetColumns === 'function') {
+      formatSheetColumns(cleanSheet, SHEETS.CLEAN_DATA);
+    }
+  }
+  
+  return removedCount;
+}

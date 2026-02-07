@@ -103,3 +103,17 @@ function handleTransferRawToClean() {
     console.error(e);
   }
 }
+
+/**
+ * Handles the "Clean Keys from Negatives" menu item click.
+ */
+function handleCleanKeysFromNegatives() {
+  try {
+    var count = cleanKeysFromNegatives();
+    SpreadsheetApp.getActiveSpreadsheet().toast("Удалено ключей: " + count);
+  } catch (e) {
+    var ui = SpreadsheetApp.getUi();
+    ui.alert("Ошибка: " + e.message);
+    console.error(e);
+  }
+}

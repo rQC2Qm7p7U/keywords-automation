@@ -67,6 +67,10 @@ var MENU = {
     {
       caption: "4. Перенос Raw -> Clean",
       functionName: "handleTransferRawToClean"
+    },
+    {
+      caption: "5. Отчистить ключи от минусов (Clean)",
+      functionName: "handleCleanKeysFromNegatives"
     }
   ]
 };
