@@ -117,3 +117,44 @@ function handleCleanKeysFromNegatives() {
     console.error(e);
   }
 }
+
+/**
+ * Handles the "Run Clustering" menu item.
+ */
+function handleRunClustering() {
+  try {
+    if (typeof runClustering === 'function') {
+      runClustering();
+    } else {
+      throw new Error("Функция runClustering не найдена.");
+    }
+  } catch (e) {
+    console.error(e);
+    SpreadsheetApp.getUi().alert("Ошибка при запуске кластеризации: " + e.message);
+  }
+}
+
+/**
+ * Handles the "Set Arsenkin Token" menu item.
+ * Prompts user for token and saves it securely.
+ */
+function handleSetArsenkinToken() {
+  var ui = SpreadsheetApp.getUi();
+  var result = ui.prompt(
+    "Установка API токена",
+    "Введите ваш API токен от Arsenkin Tools:",
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  var button = result.getSelectedButton();
+  var text = result.getResponseText();
+
+  if (button == ui.Button.OK) {
+    try {
+      setApiToken(text);
+      ui.alert("Токен успешно сохранен в PropertiesService.");
+    } catch (e) {
+      ui.alert("Ошибка при сохранении токена: " + e.message);
+    }
+  }
+}

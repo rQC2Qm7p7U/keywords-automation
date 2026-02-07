@@ -13,7 +13,10 @@ var CONFIG = {
 var SHEETS = {
   INTENT_TYPES: "Intent Types",
   RAW_DATA: "Raw Data",
-  CLEAN_DATA: "Clean Data"
+  CLEAN_DATA: "Clean Data",
+  SETTINGS: "Ars API Set",
+  CLUSTERS: "Clusters",
+  REGIONS: "Ars Regions"
 };
 
 // Columns Configuration
@@ -45,6 +48,16 @@ var COLUMNS = {
     "Bid Low",
     "Bid High",
     "Negative"
+  ],
+  CLUSTERS: [
+    "Keyword",
+    "Cluster Group",
+    "Cluster URL"
+  ],
+  SETTINGS: [
+    "Parameter",
+    "Value",
+    "Description"
   ]
 };
 
@@ -71,6 +84,14 @@ var MENU = {
     {
       caption: "5. Отчистить ключи от минусов (Clean)",
       functionName: "handleCleanKeysFromNegatives"
+    },
+    {
+      caption: "6. Кластеризация (Ars API)",
+      functionName: "handleRunClustering"
+    },
+    {
+      caption: "🔐 Арсенкин: Установить токен",
+      functionName: "handleSetArsenkinToken"
     }
   ]
 };
