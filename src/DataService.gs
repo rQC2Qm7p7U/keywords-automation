@@ -118,10 +118,10 @@ function formatSheetColumns(sheet, sheetName) {
     return sheet.getRange(2, idx + 1, lastRow - 1, 1);
   };
   
-  // Integer Format: "0" (or "#")
-  var intFormat = "0";
-  // Decimal Format: "0.00"
-  var decimalFormat = "0.00";
+  // Integer Format: "# ##0" (assuming thousand separator is desired for consistency)
+  var intFormat = "0"; 
+  // Decimal Format: "# ##0.00"
+  var decimalFormat = "# ##0.00";
   
   var rangeSearches = getColRange("Avg. monthly searches");
   if (rangeSearches) rangeSearches.setNumberFormat(intFormat);
