@@ -1,0 +1,23 @@
+# Ignore all definition files
+**/*.d.ts
+
+# Ignore hidden system files
+.DS_Store
+
+# Ignore git
+.git/
+
+# Ignore local config
+.clasp.json
+tsconfig.json
+package.json
+package-lock.json
+.eslintrc.json
+.prettierrc
+
+# Ignore tests
+__tests__/
+jest.config.js
+
+# Ignore dependencies (redundant if rootDir is src, but safer)
+node_modules/
