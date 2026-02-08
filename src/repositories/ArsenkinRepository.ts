@@ -17,12 +17,18 @@ export class ArsenkinRepository implements IArsenkinRepository {
                 if (code >= 200 && code < 300) return response;
 
                 if (code >= 400 && code < 500 && code !== 429) {
+                    // Client error: Do not retry
                     throw new Error(`Client Error (${code}): ${response.getContentText()}`);
                 }
 
                 throw new Error(`Server/Rate Limit Error (${code})`);
 
-            } catch (e) {
+            } catch (e: any) {
+                // If it's a Client Error, rethrow immediately
+                if (e.message && e.message.startsWith("Client Error")) {
+                    throw e;
+                }
+
                 lastError = e;
                 attempt++;
                 if (attempt > retries) break;

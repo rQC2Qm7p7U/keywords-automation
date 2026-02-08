@@ -4,7 +4,7 @@ import { SheetRepository } from "../repositories/SheetRepository";
 import { AdsDataService } from "../services/AdsDataService";
 
 const stateRepo = new StateRepository();
-const configRepo = new ConfigRepository(new SheetRepository()); // SheetRepo might be needed for ConfigRepo? 
+const configRepo = new ConfigRepository();
 // Check ConfigRepo constructor.
 const sheetRepo = new SheetRepository();
 const adsService = new AdsDataService(sheetRepo);

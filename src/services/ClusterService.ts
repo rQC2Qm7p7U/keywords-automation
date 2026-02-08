@@ -93,4 +93,43 @@ export class ClusterService {
 
         return { status: "PROCESSING", progress: statusId };
     }
+
+    processTaskResult(csvDataString: string): { success: boolean, message: string } {
+        const csvData = Utilities.parseCsv(csvDataString);
+        if (csvData.length === 0) {
+            return { success: false, message: "Received CSV is empty" };
+        }
+
+        // Skip header row if present
+        const csvRows = csvData.length > 1 ? csvData.slice(1) : [];
+
+        if (csvRows.length === 0) {
+            return { success: false, message: "Received CSV contains no data rows." };
+        }
+
+        const clustersSheetName = this.configRepo.getSheetName("CLUSTERS");
+        const clustersMapper = this.sheetRepo.getMapper(clustersSheetName);
+
+        const dataToWrite = csvRows.map(row => {
+            const obj: Record<string, any> = {};
+
+            // Map CSV columns to Sheet Column Names (defined in Config.ts)
+            // We rely on Arsenkin CSV structure being stable.
+            obj["Keyword"] = row[0];            // Поисковые запросы
+            obj["Group name"] = row[1];         // Название группы
+            obj["Phrases in group"] = row[2];   // Фраз в группе
+            obj["% Aggregators"] = row[3];      // % Агрегаторов
+            obj["Main pages"] = row[4];         // Главных страниц
+            obj["Toponym in query"] = row[5];   // Топоним в запросе
+            obj["URLs group"] = row[6];         // URLs группы
+
+            // Inject Negative
+            obj["Negative"] = "";
+
+            return clustersMapper.toArray(obj);
+        });
+
+        this.sheetRepo.setData(clustersSheetName, dataToWrite);
+        return { success: true, message: "Clustering results saved to 'Clusters' sheet." };
+    }
 }

@@ -1,11 +1,11 @@
-import { SheetRepository } from "../repositories/SheetRepository";
+import { ISheetRepository } from "../repositories/SheetRepository";
 import { SHEETS, COLUMNS } from "../Config";
 import { SheetDataMapper } from "../utils/SheetDataMapper";
 
 export class AdsDataService {
-    private sheetRepo: SheetRepository;
+    private sheetRepo: ISheetRepository;
 
-    constructor(sheetRepo: SheetRepository) {
+    constructor(sheetRepo: ISheetRepository) {
         this.sheetRepo = sheetRepo;
     }
 

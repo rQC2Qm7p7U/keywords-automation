@@ -117,58 +117,9 @@ function handleCheckLastTask() {
     const result = clusterService.checkLastTask();
 
     if (result.status === "FINISHED") {
-      const csvData = Utilities.parseCsv(result.data);
-      if (csvData.length > 0) {
-        let dataToWrite: any[][] = [];
-
-        // Arsenkin CSV Headers (Assumed based on previous hardcoding analysis)
-        // 0: Keyword (Поисковые запросы)
-        // 1: Group (Название группы)
-        // 2: Phrases (Фраз в группе)
-        // 3: % Agg (Агрегаторов)
-        // 4: Main Pages (Главных страниц)
-        // 5: Toponym (Топоним в запросе)
-        // 6: URLs (URLs группы)
-
-        // Skip header row if present (Arsenkin usually returns headers)
-        const csvRows = csvData.length > 1 ? csvData.slice(1) : [];
-
-        if (csvRows.length > 0) {
-          const clustersMapper = sheetRepo.getMapper(configRepo.getSheetName("CLUSTERS"));
-
-          dataToWrite = csvRows.map(row => {
-            const obj: Record<string, any> = {};
-
-            // Map CSV columns to Sheet Column Names (defined in Config.ts)
-            // We rely on Arsenkin CSV structure being stable.
-            // CSV col 0 (Поисковые запросы) -> Sheet "Keyword"
-            obj["Keyword"] = row[0];
-            // CSV col 1 (Название группы) -> Sheet "Group name"
-            obj["Group name"] = row[1];
-            // CSV col 2 (Фраз в группе) -> Sheet "Phrases in group"
-            obj["Phrases in group"] = row[2];
-            // CSV col 3 (% Агрегаторов) -> Sheet "% Aggregators"
-            obj["% Aggregators"] = row[3];
-            // CSV col 4 (Главных страниц) -> Sheet "Main pages"
-            obj["Main pages"] = row[4];
-            // CSV col 5 (Топоним в запросе) -> Sheet "Toponym in query"
-            obj["Toponym in query"] = row[5];
-            // CSV col 6 (URLs группы) -> Sheet "URLs group"
-            obj["URLs group"] = row[6];
-
-            // Inject Negative
-            obj["Negative"] = "";
-
-            return clustersMapper.toArray(obj);
-          });
-
-          sheetRepo.setData(configRepo.getSheetName("CLUSTERS"), dataToWrite);
-        } else {
-          // Only headers in CSV?
-          ui.alert("Info", "Received CSV contains no data rows.", ui.ButtonSet.OK);
-        }
-      }
-      ui.alert("Success", "Clustering results saved to 'Clusters' sheet.", ui.ButtonSet.OK);
+      // Logic moved to Service for testability
+      const processResult = clusterService.processTaskResult(result.data);
+      ui.alert(processResult.success ? "Success" : "Info", processResult.message, ui.ButtonSet.OK);
     } else {
       ui.alert("Status", `Current Status: ${result.status} (Progress: ${result.progress || '?'})`, ui.ButtonSet.OK);
     }
