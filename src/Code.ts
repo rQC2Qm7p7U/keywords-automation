@@ -40,16 +40,18 @@ function handleCreateStructure() {
   }
 }
 
-// Expose to Global Scope for GAS
-(globalThis as any).onOpen = onOpen;
-(globalThis as any).handleCreateStructure = handleCreateStructure;
-(globalThis as any).handleRemoveDuplicates = handleRemoveDuplicates;
-(globalThis as any).handleCollectNegatives = handleCollectNegatives;
-(globalThis as any).handleTransferRawToClean = handleTransferRawToClean;
-(globalThis as any).handleCleanKeysFromNegatives = handleCleanKeysFromNegatives;
-(globalThis as any).handleRunClustering = handleRunClustering;
-(globalThis as any).handleCheckLastTask = handleCheckLastTask;
-(globalThis as any).handleSetArsenkinToken = handleSetArsenkinToken;
+// Export functions for the library bundle
+export {
+  onOpen,
+  handleCreateStructure,
+  handleRemoveDuplicates,
+  handleCollectNegatives,
+  handleTransferRawToClean,
+  handleCleanKeysFromNegatives,
+  handleRunClustering,
+  handleCheckLastTask,
+  handleSetArsenkinToken
+};
 
 
 // 2. Remove Duplicates
