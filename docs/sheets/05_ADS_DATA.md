@@ -35,3 +35,4 @@
 ## Automation
 - **Generation**: Triggered by user action.
 - **Case Transformation**: Keywords are converted to "Ads Case" (Title Case), respecting **Abbreviations** defined in *Intent Types*.
+- **Manual Formatting**: Use the menu **"8. Форматировать объявления"** to re-apply Ads Case formatting to the sheet (e.g., after manual edits).

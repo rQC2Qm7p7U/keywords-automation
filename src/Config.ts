@@ -150,6 +150,10 @@ export const MENU = {
       functionName: "handleCheckLastTask"
     },
     {
+      caption: "8. Форматировать объявления (CamelCase)",
+      functionName: "handleFormatAdsData"
+    },
+    {
       caption: "🔐 Арсенкин: Установить токен",
       functionName: "handleSetArsenkinToken"
     }

@@ -172,4 +172,45 @@ describe("AdsDataService", () => {
 
         expect(() => service.prepareAdsData()).toThrow("No data in Clean Data sheet");
     });
+
+    test("formatAdsData updates headlines and descriptions correctly", () => {
+        // 1. Mock Data
+        mockSheetRepo.getData.mockReturnValue([
+            ["Campaign 1", "Ad Group 1", "keyword 1", "", "", "ugly headline", "", "ugly description"]
+        ]);
+        mockSheetRepo.getHeaders.mockReturnValue([
+            "Campaign", "Ad Group", "Keyword", "Keyword for Headline 1", "Len", "Headline 1", "Len 1", "Description 1"
+        ]);
+
+        // Mock Abbreviations
+        mockSheetRepo.getColumnValues.mockReturnValue(["USA"]);
+
+        // 2. Execute
+        service.formatAdsData();
+
+        // 3. Verify
+        expect(mockSheetRepo.setData).toHaveBeenCalledWith("Ads Data", expect.any(Array));
+        const savedData = mockSheetRepo.setData.mock.calls[0][1];
+
+        // Check row 0
+        // Headline 1 (index 5) -> "Ugly Headline"
+        // Description 1 (index 7) -> "Ugly Description"
+        expect(savedData[0][5]).toBe("Ugly Headline");
+        expect(savedData[0][7]).toBe("Ugly Description");
+    });
+
+    test("formatAdsData respects abbreviations", () => {
+        mockSheetRepo.getData.mockReturnValue([
+            ["...", "...", "...", "...", "...", "visit usa now", "...", "..."]
+        ]);
+        mockSheetRepo.getHeaders.mockReturnValue([
+            "A", "B", "C", "D", "E", "Headline 1", "F", "G"
+        ]);
+        mockSheetRepo.getColumnValues.mockReturnValue(["USA"]);
+
+        service.formatAdsData();
+
+        const savedData = mockSheetRepo.setData.mock.calls[0][1];
+        expect(savedData[0][5]).toBe("Visit USA Now");
+    });
 });

@@ -164,4 +164,64 @@ export class AdsDataService {
     private toTitleCase(str: string, abbreviations: Set<string>) {
         return this.toAdsHeadline(str, abbreviations);
     }
+
+    /**
+     * Formats existing Ads Data sheet (Headlines/Descriptions) to Ads Case.
+     * Useful for manual edits.
+     */
+    formatAdsData() {
+        const sheetName = SHEETS.ADS_DATA;
+        const data = this.sheetRepo.getData(sheetName);
+        if (!data || data.length === 0) {
+            return; // Nothing to format
+        }
+
+        const headers = this.sheetRepo.getHeaders(sheetName);
+
+        // 1. Identify columns to format
+        const targetIndices: number[] = [];
+        headers.forEach((h, i) => {
+            if (h.startsWith("Headline ") || h.startsWith("Description ")) {
+                targetIndices.push(i);
+            }
+        });
+
+        if (targetIndices.length === 0) return;
+
+        // 2. Load Abbreviations
+        const abbrevValues = this.sheetRepo.getColumnValues(SHEETS.INTENT_TYPES, "Abbreviations");
+        const abbreviations = new Set<string>();
+        abbrevValues.forEach(v => {
+            if (v) abbreviations.add(String(v).toUpperCase());
+        });
+
+        // 3. Process Data (In-place modification of rows)
+        let changed = false;
+        const updatedData = data.map(row => {
+            // Create a copy of the row if we are going to modify it? 
+            // map creates a new array if we return a new array.
+            // But if we modify `row` directly... `row` is a mutable array from `data`.
+            // Let's create a new row to be safe/pure.
+            const newRow = [...row];
+
+            targetIndices.forEach(colIdx => {
+                if (colIdx < newRow.length) {
+                    const originalVal = String(newRow[colIdx]);
+                    if (originalVal) {
+                        const formattedVal = this.toAdsHeadline(originalVal, abbreviations);
+                        if (formattedVal !== originalVal) {
+                            newRow[colIdx] = formattedVal;
+                            changed = true;
+                        }
+                    }
+                }
+            });
+            return newRow;
+        });
+
+        // 4. Write back ONLY if changed (Performance)
+        if (changed) {
+            this.sheetRepo.setData(sheetName, updatedData);
+        }
+    }
 }

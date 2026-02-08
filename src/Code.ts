@@ -4,6 +4,7 @@ import { ConfigRepository } from "./repositories/ConfigRepository";
 import { StateRepository } from "./repositories/StateRepository";
 import { CleanupService } from "./services/CleanupService";
 import { ClusterService } from "./services/ClusterService";
+import { AdsDataService } from "./services/AdsDataService";
 
 import { createProjectMenu, handleOpenSidebar } from "./UI";
 import { createStructure } from "./Structure";
@@ -56,13 +57,23 @@ export {
   handleSetArsenkinToken,
   saveSettings,
   getRegions,
-  handlePrepareAdsData
+  handlePrepareAdsData,
+  handleFormatAdsData
 };
 
 import { prepareAdsData } from "./controllers/SidebarController";
 
 function handlePrepareAdsData() {
   prepareAdsData();
+}
+
+/**
+ * 8. Format Ads Data (CamelCase + Abbreviations)
+ */
+function handleFormatAdsData() {
+  const adsService = new AdsDataService(sheetRepo);
+  adsService.formatAdsData();
+  SpreadsheetApp.getActiveSpreadsheet().toast("Ads Data Formatted Successfully!");
 }
 
 
