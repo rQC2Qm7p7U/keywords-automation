@@ -54,3 +54,7 @@ function saveSettings(settings) {
 function getRegions() {
     return App.getRegions();
 }
+
+function handlePrepareAdsData() {
+    return App.handlePrepareAdsData();
+}

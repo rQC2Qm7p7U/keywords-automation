@@ -73,6 +73,81 @@ export function createStructure() {
   clustersSheet.setFrozenRows(1);
   protectHeaderRow(clustersSheet);
 
+  // 7. Create "Ads Data" sheet
+  const adsDataSheet = ss.insertSheet(SHEETS.ADS_DATA);
+  const adsHeaders = COLUMNS.ADS_DATA;
+  adsDataSheet.getRange(1, 1, 1, adsHeaders.length).setValues([adsHeaders]);
+  adsDataSheet.getRange(1, 1, 1, adsHeaders.length).setFontWeight("bold");
+  adsDataSheet.setFrozenRows(1);
+  protectHeaderRow(adsDataSheet);
+
+  // Apply Validation & Formulas for "Len" columns
+  // Limits: Headline=30, Description=90, Path=15
+  const headlineLimit = 30;
+  const descLimit = 90;
+  const pathLimit = 15;
+
+  for (let i = 0; i < adsHeaders.length; i++) {
+    const colName = adsHeaders[i];
+    const colIndex = i + 1;
+    let limit = 0;
+
+    if (colName.startsWith("Len")) {
+      // Determine limit based on context
+      // Look at previous column to guess type? Or use name suffix?
+      // "Len" (for Headline 1 keyword? No, "Keyword for Headline 1" is col 4, "Len" is col 5) -> 30
+      // "Len N" -> 30
+      // "Len DN" -> 90
+      // "Len PN" -> 15
+
+      if (colName === "Len" || colName.startsWith("Len ") && !colName.includes("D") && !colName.includes("P")) {
+        limit = headlineLimit;
+      } else if (colName.startsWith("Len D")) {
+        limit = descLimit;
+      } else if (colName.startsWith("Len P")) {
+        limit = pathLimit;
+      }
+
+      if (limit > 0) {
+        // Set Formula: =ARRAYFORMULA(IF(R2C[-1]:C[-1]="", "", limit - LEN(R2C[-1]:C[-1])))
+        // We apply this to row 2
+        const formula = `=ARRAYFORMULA(IF(R[0]C[-1]:C[-1]="", "", ${limit} - LEN(R[0]C[-1]:C[-1])))`;
+        adsDataSheet.getRange(2, colIndex).setFormulaR1C1(formula);
+
+        // Conditional Formatting
+        // Green: = 0 (Check exact value of cell)
+        const range = adsDataSheet.getRange(2, colIndex, adsDataSheet.getMaxRows() - 1, 1);
+
+        // Red: < 0
+        const ruleRed = SpreadsheetApp.newConditionalFormatRule()
+          .whenNumberLessThan(0)
+          .setBackground("#F4CCCC") // Red-ish
+          .setRanges([range])
+          .build();
+
+        // Yellow: > 0 AND <= 5
+        // whenNumberBetween is inclusive? Yes.
+        const ruleYellow = SpreadsheetApp.newConditionalFormatRule()
+          .whenNumberBetween(1, 5)
+          .setBackground("#FFF2CC") // Yellow-ish
+          .setRanges([range])
+          .build();
+
+        // Green: == 0
+        const ruleGreen = SpreadsheetApp.newConditionalFormatRule()
+          .whenNumberEqualTo(0)
+          .setBackground("#D9EAD3") // Green-ish
+          .setRanges([range])
+          .build();
+
+        adsDataSheet.setConditionalFormatRules([
+          ...adsDataSheet.getConditionalFormatRules(),
+          ruleRed, ruleYellow, ruleGreen
+        ]);
+      }
+    }
+  }
+
   // 7. Create "Ars Regions" sheet (Hidden)
   const regionsSheet = ss.insertSheet(SHEETS.REGIONS);
   let defaultRegionName = "";
@@ -208,6 +283,8 @@ export function createStructure() {
   ss.moveActiveSheet(4);
   clustersSheet.activate();
   ss.moveActiveSheet(5);
+  adsDataSheet.activate();
+  ss.moveActiveSheet(6);
 
   // Switch to Settings for first setup
   settingsSheet.activate();

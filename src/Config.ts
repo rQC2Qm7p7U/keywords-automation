@@ -16,7 +16,8 @@ export const SHEETS = {
   CLEAN_DATA: "Clean Data",
   SETTINGS: "Ars API Set",
   CLUSTERS: "Clusters",
-  REGIONS: "Ars Regions"
+  REGIONS: "Ars Regions",
+  ADS_DATA: "Ads Data"
 };
 
 // Columns Configuration
@@ -53,6 +54,17 @@ export const COLUMNS = {
     "Keyword",
     "Cluster Group",
     "Cluster URL"
+  ],
+  ADS_DATA: [
+    "Campaign", "Ad Group", "Keyword",
+    "Keyword for Headline 1", "Len",
+    "Headline 1", "Len 1", "Headline 2", "Len 2", "Headline 3", "Len 3", "Headline 4", "Len 4", "Headline 5", "Len 5",
+    "Headline 6", "Len 6", "Headline 7", "Len 7", "Headline 8", "Len 8", "Headline 9", "Len 9", "Headline 10", "Len 10",
+    "Headline 11", "Len 11", "Headline 12", "Len 12", "Headline 13", "Len 13", "Headline 14", "Len 14", "Headline 15", "Len 15",
+    "Description 1", "Len D1", "Description 2", "Len D2", "Description 3", "Len D3", "Description 4", "Len D4",
+    "Final URL",
+    "Path1", "Len P1", "Path2", "Len P2",
+    "Campaign"
   ],
   SETTINGS: [
     "Parameter",

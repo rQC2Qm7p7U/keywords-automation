@@ -1,8 +1,13 @@
 import { StateRepository } from "../repositories/StateRepository";
 import { ConfigRepository } from "../repositories/ConfigRepository";
+import { SheetRepository } from "../repositories/SheetRepository";
+import { AdsDataService } from "../services/AdsDataService";
 
 const stateRepo = new StateRepository();
-const configRepo = new ConfigRepository();
+const configRepo = new ConfigRepository(new SheetRepository()); // SheetRepo might be needed for ConfigRepo? 
+// Check ConfigRepo constructor.
+const sheetRepo = new SheetRepository();
+const adsService = new AdsDataService(sheetRepo);
 
 export function getSettings() {
     return {
@@ -20,4 +25,8 @@ export function saveSettings(settings: { arsenkinToken: string }) {
 
 export function getRegions() {
     return configRepo.getRegions();
+}
+
+export function prepareAdsData() {
+    adsService.prepareAdsData();
 }

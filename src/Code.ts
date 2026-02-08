@@ -54,10 +54,16 @@ export {
   handleRunClustering,
   handleCheckLastTask,
   handleSetArsenkinToken,
-  getSettings,
   saveSettings,
-  getRegions
+  getRegions,
+  handlePrepareAdsData
 };
+
+import { prepareAdsData } from "./controllers/SidebarController";
+
+function handlePrepareAdsData() {
+  prepareAdsData();
+}
 
 
 // 2. Remove Duplicates

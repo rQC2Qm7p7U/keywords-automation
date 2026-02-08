@@ -18,38 +18,51 @@ export const SettingsModule: React.FC = () => {
     };
 
     return (
-        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                    <span className="mr-2">🔑</span> API Configuration
-                </h3>
-                <div className="space-y-2">
-                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Arsenkin Token</label>
-                    <div className="flex space-x-2">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+            {/* API Config Card */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                    <h3 className="font-semibold text-gray-800 text-sm flex items-center">
+                        <span className="w-6 h-6 rounded-md bg-blue-100 text-blue-600 flex items-center justify-center mr-2 text-xs">🔑</span>
+                        API Configuration
+                    </h3>
+                </div>
+
+                <div className="p-4">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Arsenkin Access Token</label>
+                    <div className="relative">
                         <input
                             type="password"
                             value={token}
                             onChange={(e) => setToken(e.target.value)}
-                            className="flex-1 p-2 border border-gray-300 rounded-md text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-                            placeholder="Enter API Token"
+                            className="block w-full pl-3 pr-16 py-2.5 text-sm border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none bg-gray-50 focus:bg-white"
+                            placeholder="• • • • • • • •"
                         />
                         <button
                             onClick={handleSaveToken}
-                            className="px-3 py-2 bg-slate-800 text-white text-xs font-medium rounded-md hover:bg-slate-700 transition"
+                            className="absolute right-1 top-1 bottom-1 px-3 bg-white border border-gray-200 text-gray-700 hover:text-blue-600 hover:border-blue-300 rounded-md text-xs font-medium transition-all shadow-sm"
                         >
                             Save
                         </button>
                     </div>
+                    <p className="mt-2 text-[10px] text-gray-400 leading-tight">
+                        Required for clustering operations. Your token is stored securely in your script properties.
+                    </p>
                 </div>
             </div>
 
-            <div className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full bg-teal-500"></div>
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                    <span className="mr-2">🌍</span> Region Selection
-                </h3>
-                <RegionSelector />
+            {/* Region Select Card */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+                    <h3 className="font-semibold text-gray-800 text-sm flex items-center">
+                        <span className="w-6 h-6 rounded-md bg-teal-100 text-teal-600 flex items-center justify-center mr-2 text-xs">🌍</span>
+                        Target Region
+                    </h3>
+                </div>
+                <div className="p-4">
+                    <RegionSelector />
+                </div>
             </div>
         </div>
     );
