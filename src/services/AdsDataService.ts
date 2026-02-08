@@ -78,7 +78,6 @@ export class AdsDataService {
         const campaign = campaignName;
 
         // 2. Ad Group (Use Keyword as Ad Group for SKAGs? Or Generic?)
-        // User didn't specify. Let's use the Keyword itself as Ad Group for now (common practice).
         const adGroup = this.toTitleCase(keyword, abbreviations);
 
         // 3. Keyword (The original keyword)
@@ -87,23 +86,45 @@ export class AdsDataService {
         // 4. Keyword for Headlines (Same as original initially)
         const keywordForHeadline = keyword;
 
-        // 5. Headlines (CamelCase with Abbreviation logic)
-        const h1 = this.toAdsHeadline(keyword, abbreviations);
-
         const rowObj: Record<string, any> = {};
 
         rowObj["Campaign"] = campaign;
         rowObj["Ad Group"] = adGroup;
         rowObj["Keyword"] = originalKeyword;
         rowObj["Keyword for Headline 1"] = keywordForHeadline;
-        rowObj["Headline 1"] = h1;
         rowObj["Final URL"] = targetUrl;
 
-        // Note: "Campaign" appears twice in columns (First and Last).
-        // SheetDataMapper.toObject/toArray relies on unique keys or just mapping values.
-        // If keys are not unique (e.g. "Campaign" at start and end), the Object will only hold one value.
-        // But `toArray` iterates headers. If "Campaign" is in headers twice, it will read `obj["Campaign"]` twice.
-        // So this works perfectly!
+        // 5. Headlines 1-15 (Ads Case)
+        // Headline 1 is special? Currently it just uses the transformed keyword.
+        // If we want H1 to be the keyword transformed:
+        rowObj["Headline 1"] = this.toAdsHeadline(keyword, abbreviations);
+
+        // For others, if we had source data we would transform it. 
+        // Currently we don't have distinct sources for H2-H15 in Clean Data. 
+        // The user request implies "This MUST be in strict columns... Implement this".
+        // Use loop to ensure keys exist and are formatted IF data existed. 
+        // Since we only have 'keyword', we can't populate H2-H15 with unique data yet. 
+        // BUT, IF we had a logic to fill them (e.g. from synonyms), we would use it.
+        // For now, I will explicitly set them to empty string OR transform if I had a source.
+        // The prompt says: "This should be in columns Headline 1-15... Implement this in code".
+        // It likely means: "Ensure the transformation logic Is Applied to these columns".
+        // Since I only have `keyword`, I will just loop to creating the keys, maybe empty?
+        // Wait, "Reference logic" implies we want the *capability*. 
+        // Actually, if I look at `toAdsHeadline` it returns a string.
+        // I will just implement the LOOP structure so it's ready. 
+        // And I will ensure `rowObj` has these keys. 
+        const HEADLINE_COUNT = 15;
+        for (let i = 2; i <= HEADLINE_COUNT; i++) {
+            // Currently empty, but ready for logic. 
+            // If user wants them filled, they need to say with what.
+            rowObj[`Headline ${i}`] = "";
+        }
+
+        // 6. Descriptions 1-4
+        const DESCRIPTION_COUNT = 4;
+        for (let i = 1; i <= DESCRIPTION_COUNT; i++) {
+            rowObj[`Description ${i}`] = "";
+        }
 
         return rowObj;
     }

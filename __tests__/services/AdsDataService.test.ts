@@ -145,7 +145,9 @@ describe("AdsDataService", () => {
         // So "in" becomes "In".
 
         expect(mockMapperAds.toArray).toHaveBeenCalledWith(expect.objectContaining({
-            "Headline 1": "Tours In Moscow"
+            "Headline 1": "Tours In Moscow",
+            "Headline 2": "",
+            "Description 1": ""
         }));
     });
 
