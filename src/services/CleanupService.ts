@@ -83,11 +83,11 @@ export class CleanupService {
 
             cleanData.push([
                 keyword,
+                "", // Negative
                 searches,
                 comp,
                 bidLow,
-                bidHigh,
-                "" // Negative
+                bidHigh
             ]);
         });
 
@@ -143,11 +143,13 @@ export class CleanupService {
     collectNegativeKeywords(): number {
         const rawSheet = this.configRepo.getSheetName("RAW_DATA");
         const cleanSheet = this.configRepo.getSheetName("CLEAN_DATA");
+        const clustersSheet = this.configRepo.getSheetName("CLUSTERS");
         const intentSheet = this.configRepo.getSheetName("INTENT_TYPES");
 
-        // Get Negatives from Raw and Clean
+        // Get Negatives from Raw, Clean, and Clusters
         const rawNegs = this.sheetRepo.getColumnValues(rawSheet, "Negative");
         const cleanNegs = this.sheetRepo.getColumnValues(cleanSheet, "Negative");
+        const clustersNegs = this.sheetRepo.getColumnValues(clustersSheet, "Negative");
         const existingNegs = this.sheetRepo.getColumnValues(intentSheet, "Negative");
 
         const allNegatives = new Set<string>();
@@ -161,6 +163,7 @@ export class CleanupService {
 
         rawNegs.forEach(addIfValid);
         cleanNegs.forEach(addIfValid);
+        clustersNegs.forEach(addIfValid);
         existingNegs.forEach(addIfValid);
 
         const sortedNegatives = Array.from(allNegatives).sort();
@@ -170,6 +173,7 @@ export class CleanupService {
 
         this.highlightNegativesInSheet(rawSheet, allNegatives);
         this.highlightNegativesInSheet(cleanSheet, allNegatives);
+        this.highlightNegativesInSheet(clustersSheet, allNegatives);
 
         return sortedNegatives.length;
     }

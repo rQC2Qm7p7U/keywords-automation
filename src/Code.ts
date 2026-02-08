@@ -118,7 +118,29 @@ function handleCheckLastTask() {
 
     if (result.status === "FINISHED") {
       const csvData = Utilities.parseCsv(result.data);
-      sheetRepo.setData(configRepo.getSheetName("CLUSTERS"), csvData);
+      if (csvData.length > 0) {
+        // Assume first row is headers. If we created headers in Structure, we might want to skip them.
+        // Or we can just overwrite if the CSV headers match. 
+        // But to preserve formatting, let's write from Row 2 if we skip headers.
+        // Let's assume CSV includes headers.
+
+        let dataToWrite = csvData.length > 1 ? csvData.slice(1) : [];
+        if (dataToWrite.length > 0) {
+          // Inject "Negative" column at index 2 (Config.ts: Keyword, Group, Negative, ...)
+          // Arsenkin CSV likely: Keyword, Group, Phrases, %, Main, Toponym, URLs
+          // We need to insert "" at index 2.
+          dataToWrite = dataToWrite.map(row => {
+            const newRow = [...row];
+            newRow.splice(2, 0, ""); // Insert empty string at index 2
+            return newRow;
+          });
+
+          sheetRepo.setData(configRepo.getSheetName("CLUSTERS"), dataToWrite);
+        } else {
+          // Only headers in CSV?
+          ui.alert("Info", "Received CSV contains no data rows.", ui.ButtonSet.OK);
+        }
+      }
       ui.alert("Success", "Clustering results saved to 'Clusters' sheet.", ui.ButtonSet.OK);
     } else {
       ui.alert("Status", `Current Status: ${result.status} (Progress: ${result.progress || '?'})`, ui.ButtonSet.OK);

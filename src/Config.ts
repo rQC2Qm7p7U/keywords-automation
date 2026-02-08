@@ -17,7 +17,9 @@ export const SHEETS = {
   SETTINGS: "Settings",
   CLUSTERS: "Clusters",
   REGIONS: "Ars Regions",
-  ADS_DATA: "Ads Data"
+  ADS_DATA: "Ads Data",
+  ADS_PHRASE: "Ads Phrase",
+  ADS_ADAPTIVE: "Ads Adaptive"
 };
 
 // Columns Configuration
@@ -51,9 +53,13 @@ export const COLUMNS = {
     "Negative"
   ],
   CLUSTERS: [
-    "Keyword",
-    "Cluster Group",
-    "Cluster URL"
+    "Поисковые запросы",
+    "Название группы",
+    "Фраз в группе",
+    "% Агрегаторов",
+    "Главных страниц",
+    "Топоним в запросе",
+    "URLs группы"
   ],
   ADS_DATA: [
     "Campaign", "Ad Group", "Keyword",
@@ -70,6 +76,39 @@ export const COLUMNS = {
     "Parameter",
     "Value",
     "Description"
+  ],
+  ADS_PHRASE: [
+    "Campaign",
+    "Ad Group",
+    "Keyword",
+    "Criterion Type"
+  ],
+  ADS_ADAPTIVE: [
+    "Campaign",
+    "Ad Group",
+    "Headline 1",
+    "Headline 1 position",
+    "Headline 2",
+    "Headline 3",
+    "Headline 4",
+    "Headline 5",
+    "Headline 6",
+    "Headline 7",
+    "Headline 8",
+    "Headline 9",
+    "Headline 10",
+    "Headline 11",
+    "Headline 12",
+    "Headline 13",
+    "Headline 14",
+    "Headline 15",
+    "Description 1",
+    "Description 2",
+    "Description 3",
+    "Description 4",
+    "Final URL",
+    "Path1",
+    "Path2"
   ]
 };
 

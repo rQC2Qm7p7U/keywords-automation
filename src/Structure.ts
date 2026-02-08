@@ -87,6 +87,17 @@ export function createStructure() {
   const descLimit = 90;
   const pathLimit = 15;
 
+
+  const columnToLetter = (column: number) => {
+    let temp, letter = '';
+    while (column > 0) {
+      temp = (column - 1) % 26;
+      letter = String.fromCharCode(temp + 65) + letter;
+      column = (column - temp - 1) / 26;
+    }
+    return letter;
+  };
+
   for (let i = 0; i < adsHeaders.length; i++) {
     const colName = adsHeaders[i];
     const colIndex = i + 1;
@@ -94,13 +105,11 @@ export function createStructure() {
 
     if (colName.startsWith("Len")) {
       // Determine limit based on context
-      // Look at previous column to guess type? Or use name suffix?
-      // "Len" (for Headline 1 keyword? No, "Keyword for Headline 1" is col 4, "Len" is col 5) -> 30
-      // "Len N" -> 30
-      // "Len DN" -> 90
-      // "Len PN" -> 15
+      // "Len" (Headline) -> 30
+      // "Len D" (Description) -> 90
+      // "Len P" (Path) -> 15
 
-      if (colName === "Len" || colName.startsWith("Len ") && !colName.includes("D") && !colName.includes("P")) {
+      if (colName === "Len" || (colName.startsWith("Len ") && !colName.includes("D") && !colName.includes("P"))) {
         limit = headlineLimit;
       } else if (colName.startsWith("Len D")) {
         limit = descLimit;
@@ -109,13 +118,13 @@ export function createStructure() {
       }
 
       if (limit > 0) {
-        // Set Formula: =ARRAYFORMULA(IF(R2C[-1]:C[-1]="", "", limit - LEN(R2C[-1]:C[-1])))
-        // We apply this to row 2
-        const formula = `=ARRAYFORMULA(IF(R[0]C[-1]:C[-1]="", "", ${limit} - LEN(R[0]C[-1]:C[-1])))`;
-        adsDataSheet.getRange(2, colIndex).setFormulaR1C1(formula);
+        // Target Column is the one before this (colIndex - 1)
+        const targetColLetter = columnToLetter(colIndex - 1);
+        const formula = `=ARRAYFORMULA(IF(${targetColLetter}2:${targetColLetter}="", "", ${limit} - LEN(${targetColLetter}2:${targetColLetter})))`;
+
+        adsDataSheet.getRange(2, colIndex).setFormula(formula);
 
         // Conditional Formatting
-        // Green: = 0 (Check exact value of cell)
         const range = adsDataSheet.getRange(2, colIndex, adsDataSheet.getMaxRows() - 1, 1);
 
         // Red: < 0
@@ -126,7 +135,6 @@ export function createStructure() {
           .build();
 
         // Yellow: > 0 AND <= 5
-        // whenNumberBetween is inclusive? Yes.
         const ruleYellow = SpreadsheetApp.newConditionalFormatRule()
           .whenNumberBetween(1, 5)
           .setBackground("#FFF2CC") // Yellow-ish
@@ -148,7 +156,23 @@ export function createStructure() {
     }
   }
 
-  // 7. Create "Regions" sheet (Hidden)
+  // 8. Create "Ads Phrase" sheet
+  const adsPhraseSheet = ss.insertSheet(SHEETS.ADS_PHRASE);
+  const adsPhraseHeaders = COLUMNS.ADS_PHRASE;
+  adsPhraseSheet.getRange(1, 1, 1, adsPhraseHeaders.length).setValues([adsPhraseHeaders]);
+  adsPhraseSheet.getRange(1, 1, 1, adsPhraseHeaders.length).setFontWeight("bold");
+  adsPhraseSheet.setFrozenRows(1);
+  protectHeaderRow(adsPhraseSheet);
+
+  // 9. Create "Ads Adaptive" sheet
+  const adsAdaptiveSheet = ss.insertSheet(SHEETS.ADS_ADAPTIVE);
+  const adsAdaptiveHeaders = COLUMNS.ADS_ADAPTIVE;
+  adsAdaptiveSheet.getRange(1, 1, 1, adsAdaptiveHeaders.length).setValues([adsAdaptiveHeaders]);
+  adsAdaptiveSheet.getRange(1, 1, 1, adsAdaptiveHeaders.length).setFontWeight("bold");
+  adsAdaptiveSheet.setFrozenRows(1);
+  protectHeaderRow(adsAdaptiveSheet);
+
+  // 10. Create "Regions" sheet (Hidden)
   const regionsSheet = ss.insertSheet(SHEETS.REGIONS);
   let defaultRegionName = "";
   let defaultRegionSearch = "";
@@ -201,27 +225,28 @@ export function createStructure() {
   // Define Settings Rows
   const settingsRows = [
     // --- GENERAL ---
-    ["=== GENERAL ===", "", ""],
+    ["GENERAL", "", ""],
     ["Search Engine", "Google", "Поисковая система (Google/Yandex)"],
     ["Region Search", defaultRegionSearch, "Введите название города (например 'Mosc' или 'Моск')"],
     ["Region", defaultRegionName, "Выберите регион из выпадающего списка (фильтруется по поиску)"],
 
     // --- CLUSTERING ---
-    ["=== CLUSTERING ===", "", ""],
+    ["CLUSTERING", "", ""],
     ["Group Type", "hard", "Тип группировки (soft/hard)"],
     ["Group Count", "3", "Степень группировки (2-10)"],
     ["Depth", "10", "Глубина проверки (10, 20, 30)"],
     ["Ignore Main Page", "true", "Исключать главные страницы"],
 
     // --- ADS DATA ---
-    ["=== ADS DATA ===", "", ""],
+    ["ADS DATA", "", ""],
     ["Campaign Name", "Keywords Automation", "Название кампании для экспорта"],
+    ["Target URL", "https://example.com", "Целевая ссылка для объявлений"],
     ["Max Headline Length", "30", "Максимальная длина заголовка (обычно 30)"],
     ["Max Description Length", "90", "Максимальная длина описания (обычно 90)"],
     ["Max Path Length", "15", "Максимальная длина пути (обычно 15)"],
 
     // --- SYSTEM ---
-    ["=== SYSTEM ===", "", ""],
+    ["SYSTEM", "", ""],
     ["API Token Status", "Not Set", "Статус токена (меняется через меню)"]
   ];
 
@@ -229,7 +254,7 @@ export function createStructure() {
   settingsSheet.getRange(startRow, 1, settingsRows.length, 3).setValues(settingsRows);
 
   // Values Formatting
-  const headerRows = [2, 6, 11, 16];
+  const headerRows = [2, 6, 11, 17];
   headerRows.forEach(r => {
     settingsSheet.getRange(r, 1, 1, 3).setBackground("#d9d9d9").setFontWeight("bold");
   });
@@ -286,6 +311,10 @@ export function createStructure() {
   ss.moveActiveSheet(5);
   adsDataSheet.activate();
   ss.moveActiveSheet(6);
+  adsPhraseSheet.activate();
+  ss.moveActiveSheet(7);
+  adsAdaptiveSheet.activate();
+  ss.moveActiveSheet(8);
 
   settingsSheet.activate();
   ss.toast(MESSAGES.SUCCESS.STRUCTURE_CREATED);
