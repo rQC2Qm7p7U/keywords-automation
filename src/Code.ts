@@ -5,7 +5,7 @@ import { StateRepository } from "./repositories/StateRepository";
 import { CleanupService } from "./services/CleanupService";
 import { ClusterService } from "./services/ClusterService";
 
-import { createProjectMenu } from "./UI";
+import { createProjectMenu, handleOpenSidebar } from "./UI";
 import { createStructure } from "./Structure";
 import { CONFIG, SHEETS } from "./Config";
 import { MESSAGES } from "./Messages";
@@ -40,9 +40,12 @@ function handleCreateStructure() {
   }
 }
 
+import { getSettings, saveSettings, getRegions } from "./controllers/SidebarController";
+
 // Export functions for the library bundle
 export {
   onOpen,
+  handleOpenSidebar,
   handleCreateStructure,
   handleRemoveDuplicates,
   handleCollectNegatives,
@@ -50,7 +53,10 @@ export {
   handleCleanKeysFromNegatives,
   handleRunClustering,
   handleCheckLastTask,
-  handleSetArsenkinToken
+  handleSetArsenkinToken,
+  getSettings,
+  saveSettings,
+  getRegions
 };
 
 

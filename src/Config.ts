@@ -66,6 +66,10 @@ export const MENU = {
   TITLE: "АВТОМАТИКА",
   ITEMS: [
     {
+      caption: "Open Internal App (React)",
+      functionName: "handleOpenSidebar"
+    },
+    {
       caption: "1. Создать структуру таблицы",
       functionName: "handleCreateStructure"
     },

@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "npx jest",
-    "build": "npx esbuild src/Code.ts --bundle --global-name=App --outfile=dist/Code.js --platform=neutral --target=es2020 --format=iife && cat src/GAS_Entry.js >> dist/Code.js && cp src/appsscript.json dist/",
+    "build:frontend": "cd src/frontend && npm run build",
+    "build:backend": "npx esbuild src/Code.ts --bundle --global-name=App --outfile=dist/Code.js --platform=neutral --target=es2020 --format=iife && cat src/GAS_Entry.js >> dist/Code.js && cp src/appsscript.json dist/",
+    "build": "mkdir -p dist && npm run build:frontend && cp src/frontend/dist/index.html dist/Sidebar.html && npm run build:backend",
     "deploy": "npm run build && npx clasp push --force"
   },
   "repository": {

@@ -7,6 +7,10 @@ function onOpen(e) {
     return App.onOpen(e);
 }
 
+function handleOpenSidebar() {
+    return App.handleOpenSidebar();
+}
+
 function handleCreateStructure() {
     return App.handleCreateStructure();
 }
@@ -37,4 +41,16 @@ function handleCheckLastTask() {
 
 function handleSetArsenkinToken() {
     return App.handleSetArsenkinToken();
+}
+
+function getSettings() {
+    return App.getSettings();
+}
+
+function saveSettings(settings) {
+    return App.saveSettings(settings);
+}
+
+function getRegions() {
+    return App.getRegions();
 }
