@@ -1,0 +1,27 @@
+{
+    "compilerOptions": {
+        "target": "ES2019",
+        "lib": [
+            "esnext"
+        ],
+        "moduleResolution": "node",
+        "strict": true,
+        "noImplicitAny": false,
+        "esModuleInterop": true,
+        "resolveJsonModule": true,
+        "outDir": "build",
+        "rootDir": "src",
+        "types": [
+            "google-apps-script",
+            "jest",
+            "node"
+        ]
+    },
+    "include": [
+        "src/**/*"
+    ],
+    "exclude": [
+        "node_modules",
+        "build"
+    ]
+}
