@@ -25,20 +25,19 @@ export class ClusterService {
         const token = this.stateRepo.getProperty("ARSENKIN_API_TOKEN");
         if (!token) throw new Error("API Token not set. Please set it in the menu.");
 
-        const settingsSheet = this.configRepo.getSheetName("SETTINGS");
+        const settingsSheetName = this.configRepo.getSheetName("SETTINGS");
+        const data = this.sheetRepo.getData(settingsSheetName); // Assumes [[A1, B1], [A2, B2]...]
 
-        // We only need Region now from Sheet
-        const values = this.sheetRepo.getColumnValues(settingsSheet, "Value");
+        // Helper to find value by Key (Col A)
+        const getValue = (key: string): string => {
+            const row = data.find(r => r[0] === key);
+            return row ? String(row[1]) : "";
+        };
 
-        // Structure.ts: 
-        // Row 0 (Header)
-        // Row 1 (B2): Search Engine
-        // Row 2 (B3): Region Search
-        // Row 3 (B4): Region Name
-        const regionName = values[2];
+        const regionName = getValue("Region");
 
         const regionsSheet = this.configRepo.getSheetName("REGIONS");
-        const regions = this.sheetRepo.getData(regionsSheet); // Col A=Name, Col B=ID
+        const regions = this.sheetRepo.getData(regionsSheet);
         const found = regions.find(r => r[0] === regionName);
 
         let regionId = 213; // Default Moscow

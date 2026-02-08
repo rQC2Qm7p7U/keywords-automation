@@ -148,7 +148,7 @@ export function createStructure() {
     }
   }
 
-  // 7. Create "Ars Regions" sheet (Hidden)
+  // 7. Create "Regions" sheet (Hidden)
   const regionsSheet = ss.insertSheet(SHEETS.REGIONS);
   let defaultRegionName = "";
   let defaultRegionSearch = "";
@@ -156,59 +156,39 @@ export function createStructure() {
   try {
     const csvContent = UrlFetchApp.fetch("https://arsenkin.ru/google_regions.csv").getContentText();
     const csvData = Utilities.parseCsv(csvContent);
-    // CSV Structure: ID, EnName, RuName. 
-    // Example: 1001493,"Minsk,Minsk Region,Belarus","Минск,Минская Область,Беларусь"
 
     if (csvData.length > 0) {
-      // Transform to [Composite Name, ID]
-      // Composite Name = "RuName | EnName" for bilingual search
       let reorderedData = csvData.map(row => {
         const id = row[0];
-        // Fallbacks if columns are missing
         const enName = (row.length > 1 && row[1]) ? row[1] : id;
         const ruName = (row.length > 2 && row[2]) ? row[2] : enName;
-
         const compositeName = `${ruName} | ${enName}`;
         return [compositeName, id];
       });
 
-      // SORT by Name (best practice for large lists)
       reorderedData.sort((a, b) => a[0].localeCompare(b[0]));
 
-      // Find default name for ID 213 (Moscow) AFTER sorting/formatting
-      // We scan the processed list to find the exact string that will be in the dropdown
       const defaults = reorderedData.find(r => String(r[1]) === "213");
       if (defaults) {
-        defaultRegionName = defaults[0]; // e.g. "Москва, ... | Moscow, ..."
-        // Set search default to first word of Russian name to ensure it appears in dropdown
+        defaultRegionName = defaults[0];
         defaultRegionSearch = "Москва";
       } else {
-        // Fallback if 213 not found, pick first item or generic
         defaultRegionName = reorderedData.length > 0 ? reorderedData[0][0] : "213";
         defaultRegionSearch = "";
       }
 
-      // Auto-Resize sheet to fit data (prevent errors with >1000 rows)
       if (regionsSheet.getMaxRows() < reorderedData.length) {
         regionsSheet.insertRowsAfter(regionsSheet.getMaxRows(), reorderedData.length - regionsSheet.getMaxRows());
       }
 
       regionsSheet.getRange(1, 1, reorderedData.length, 2).setValues(reorderedData);
-
-      // Add Filter Formula to D1 (Dependent Dropdown Logic)
-      // Filters Col A based on input in 'Ars API Set'!B3 (Search Cell)
-      // QUERY is robust. LIMIT 100 prevents lag.
-      // We reference the sheet by name.
-      // NOTE: setFormula requires US syntax (comma separators), even if user locale uses semicolons.
-      const formula = `=IF(ISBLANK('${SHEETS.SETTINGS}'!B3), ARRAY_CONSTRAIN(A:A, 50, 1), QUERY(A:A, "Select A Where lower(A) contains '" & LOWER('${SHEETS.SETTINGS}'!B3) & "' Limit 50"))`;
-      regionsSheet.getRange("D1").setFormula(formula);
     }
   } catch (e: any) {
     regionsSheet.getRange(1, 1).setValue("Error loading regions: " + e.message);
   }
   regionsSheet.hideSheet();
 
-  // 8. Create "Ars API Set" sheet
+  // 8. Create "Settings" sheet
   const settingsSheet = ss.insertSheet(SHEETS.SETTINGS);
 
   // Setup columns
@@ -219,60 +199,81 @@ export function createStructure() {
   protectHeaderRow(settingsSheet);
 
   // Define Settings Rows
-  // Added "Region Search" row
   const settingsRows = [
-    ["Search Engine", "Google", "Поисковая система"],
+    // --- GENERAL ---
+    ["=== GENERAL ===", "", ""],
+    ["Search Engine", "Google", "Поисковая система (Google/Yandex)"],
     ["Region Search", defaultRegionSearch, "Введите название города (например 'Mosc' или 'Моск')"],
     ["Region", defaultRegionName, "Выберите регион из выпадающего списка (фильтруется по поиску)"],
+
+    // --- CLUSTERING ---
+    ["=== CLUSTERING ===", "", ""],
     ["Group Type", "hard", "Тип группировки (soft/hard)"],
     ["Group Count", "3", "Степень группировки (2-10)"],
     ["Depth", "10", "Глубина проверки (10, 20, 30)"],
     ["Ignore Main Page", "true", "Исключать главные страницы"],
+
+    // --- ADS DATA ---
+    ["=== ADS DATA ===", "", ""],
+    ["Campaign Name", "Keywords Automation", "Название кампании для экспорта"],
+    ["Max Headline Length", "30", "Максимальная длина заголовка (обычно 30)"],
+    ["Max Description Length", "90", "Максимальная длина описания (обычно 90)"],
+    ["Max Path Length", "15", "Максимальная длина пути (обычно 15)"],
+
+    // --- SYSTEM ---
+    ["=== SYSTEM ===", "", ""],
     ["API Token Status", "Not Set", "Статус токена (меняется через меню)"]
   ];
 
   const startRow = 2;
   settingsSheet.getRange(startRow, 1, settingsRows.length, 3).setValues(settingsRows);
 
+  // Values Formatting
+  const headerRows = [2, 6, 11, 16];
+  headerRows.forEach(r => {
+    settingsSheet.getRange(r, 1, 1, 3).setBackground("#d9d9d9").setFontWeight("bold");
+  });
+
   // --- DATA VALIDATION ---
 
-  // 1. Search Engine (B2)
+  // 1. Search Engine (Row 3 -> B3)
   const seRule = SpreadsheetApp.newDataValidation().requireValueInList(["Google", "Yandex"]).build();
-  settingsSheet.getRange("B2").setDataValidation(seRule);
+  settingsSheet.getRange("B3").setDataValidation(seRule);
 
-  // 2. Region Search (B3) - Simple Input (No validation, but maybe a helpful note?)
-  // We leave it plain text for free typing.
-
-  // 3. Region Select (B4) - Dependent Dropdown
-  // Points to the FILTERED list in Ars Regions!D1:D50
+  // 2. Region Select (Row 5 -> B5)
   const filteredRange = regionsSheet.getRange("D1:D50");
   const regionRule = SpreadsheetApp.newDataValidation().requireValueInRange(filteredRange).build();
-  settingsSheet.getRange("B4").setDataValidation(regionRule);
+  settingsSheet.getRange("B5").setDataValidation(regionRule);
 
-  // 4. Group Type (B5)
+  // Update Region filter formula (B4 is Search)
+  const searchCell = `'${SHEETS.SETTINGS}'!B4`;
+  const regionFormula = `=IF(ISBLANK(${searchCell}), ARRAY_CONSTRAIN(A:A, 50, 1), QUERY(A:A, "Select A Where lower(A) contains '" & LOWER(${searchCell}) & "' Limit 50"))`;
+  regionsSheet.getRange("D1").setFormula(regionFormula);
+
+  // 3. Group Type (Row 7 -> B7)
   const groupRule = SpreadsheetApp.newDataValidation().requireValueInList(["soft", "hard"]).build();
-  settingsSheet.getRange("B5").setDataValidation(groupRule);
+  settingsSheet.getRange("B7").setDataValidation(groupRule);
 
-  // 5. Group Count (B6)
+  // 4. Group Count (Row 8 -> B8)
   const countRule = SpreadsheetApp.newDataValidation().requireValueInList(["2", "3", "4", "5", "6", "7", "8", "9", "10"]).build();
-  settingsSheet.getRange("B6").setDataValidation(countRule);
+  settingsSheet.getRange("B8").setDataValidation(countRule);
 
-  // 6. Depth (B7)
+  // 5. Depth (Row 9 -> B9)
   const depthRule = SpreadsheetApp.newDataValidation().requireValueInList(["10", "20", "30"]).build();
-  settingsSheet.getRange("B7").setDataValidation(depthRule);
+  settingsSheet.getRange("B9").setDataValidation(depthRule);
 
-  // 7. Ignore Main (B8)
+  // 6. Ignore Main (Row 10 -> B10)
   const boolRule = SpreadsheetApp.newDataValidation().requireCheckbox().build();
-  settingsSheet.getRange("B8").setDataValidation(boolRule);
+  settingsSheet.getRange("B10").setDataValidation(boolRule);
 
   // Auto-resize
   settingsSheet.autoResizeColumns(1, 3);
-  settingsSheet.setColumnWidth(2, 150); // Make Value column wider
+  settingsSheet.setColumnWidth(2, 200);
 
-  // 9. Delete the temporary sheet
+  // 9. Delete Temp
   ss.deleteSheet(tempSheet);
 
-  // 10. Ensure correct order
+  // 10. Reorder
   intentSheet.activate();
   ss.moveActiveSheet(1);
   rawDataSheet.activate();
@@ -286,12 +287,9 @@ export function createStructure() {
   adsDataSheet.activate();
   ss.moveActiveSheet(6);
 
-  // Switch to Settings for first setup
   settingsSheet.activate();
-
   ss.toast(MESSAGES.SUCCESS.STRUCTURE_CREATED);
 }
-
 
 /**
  * Protects the first row (headers) of the given sheet.
@@ -299,11 +297,10 @@ export function createStructure() {
  *
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The sheet to protect.
  */
-function protectHeaderRow(sheet) {
+function protectHeaderRow(sheet: GoogleAppsScript.Spreadsheet.Sheet) {
   const protection = sheet.getRange(1, 1, 1, sheet.getLastColumn()).protect();
   protection.setDescription('Protected Headers');
 
-  // Remove all editors except the script owner/runner
   const me = Session.getEffectiveUser();
   protection.addEditor(me);
   protection.removeEditors(protection.getEditors());

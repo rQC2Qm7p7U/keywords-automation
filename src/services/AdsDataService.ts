@@ -12,13 +12,24 @@ export class AdsDataService {
      * Main function to prepare Ads Data.
      * Reads Keywords -> Processes them -> Writes to Ads Data sheet.
      */
+    /**
+     * Main function to prepare Ads Data.
+     * Reads Keywords -> Processes them -> Writes to Ads Data sheet.
+     */
     prepareAdsData() {
-        // 1. Get Keywords from "Clean Data" (or Raw? User said "after Keywords appear in column Keyword")
-        // Usually we take from Clean Data or the active sheet. 
-        // Let's assume we take from "Clean Data" for now, or we can make it flexible.
-        // The user requirement says "This table will work so: 1. After keywords appear in Keyword column..."
-        // This implies the user might copy-paste them OR we pull them.
-        // Let's implement a "Pull from Clean Data" feature for the button.
+        // Fetch Settings
+        const settingsData = this.sheetRepo.getData(SHEETS.SETTINGS);
+        const getValue = (key: string, defaultVal: string) => {
+            const row = settingsData.find(r => r[0] === key);
+            return row ? String(row[1]) : defaultVal;
+        };
+
+        const campaignName = getValue("Campaign Name", "Keywords Automation");
+
+        // Settings are mapped to "Max Headline Length" etc.
+        // But the previous formulas used 30, 90, 15. The Logic in `generateAdsRow` doesn't strictly truncate yet, 
+        // but if we want to add truncation logic we can use these values. 
+        // For now, I'll pass them if needed, or just Campaign Name which is the most visible dynamic one.
 
         // Fetch Keywords from Clean Data
         const cleanData = this.sheetRepo.getData(SHEETS.CLEAN_DATA);
@@ -35,19 +46,11 @@ export class AdsDataService {
             const keyword = String(row[0]); // Assumes Keyword is 1st column
             if (!keyword) return null;
 
-            return this.generateAdsRow(keyword, abbreviations);
+            return this.generateAdsRow(keyword, abbreviations, campaignName);
         }).filter(r => r !== null);
 
         // Write to Ads Data Sheet
-        // We append or overwrite? Usually overwrite or append.
-        // Let's clear and overwrite to be safe/clean for "Prepare" action.
         this.sheetRepo.clearContent(SHEETS.ADS_DATA);
-        // Re-write headers? clearContent usually accepts "startRow".
-        // SheetRepository.clearContent might clear everything.
-        // Let's check SheetRepository validation.
-
-        // Actually, usually we want to append. But for a "Preparation" tool, a fresh start is often better.
-        // Let's write from row 2.
         if (processedRows.length > 0) {
             this.sheetRepo.setData(SHEETS.ADS_DATA, processedRows, 2, 1);
         }
@@ -75,9 +78,9 @@ export class AdsDataService {
     /**
      * Generates a single row for Ads Data sheet.
      */
-    private generateAdsRow(keyword: string, abbreviations: Set<string>): any[] {
-        // 1. Campaign Name (User said "Table Name" - assume Project Name or Sheet Name)
-        const campaign = "Keywords Automation"; // Or pass as arg
+    private generateAdsRow(keyword: string, abbreviations: Set<string>, campaignName: string): any[] {
+        // 1. Campaign Name
+        const campaign = campaignName;
 
         // 2. Ad Group (Use Keyword as Ad Group for SKAGs? Or Generic?)
         // User didn't specify. Let's use the Keyword itself as Ad Group for now (common practice).
@@ -104,12 +107,7 @@ export class AdsDataService {
         row[1] = adGroup;       // Ad Group
         row[2] = originalKeyword; // Keyword
         row[3] = keywordForHeadline; // Keyword for HL1
-        // Len cols are formulas, leave empty or 0? 
-        // If we write values, formulas might be overwritten if not carefully handled.
-        // Wait, Structure.ts puts formulas in Row 2 with ARRAYFORMULA.
-        // If we write data into Row 2+, will it break ArrayFormula?
-        // Google Sheets ArrayFormula usually expands *down*. 
-        // BUT we must NOT write into the "Len" columns. We should write "" (empty string) into them.
+        // Len cols are formulas, leave empty.
 
         row[5] = h1; // Headline 1
 
@@ -132,17 +130,20 @@ export class AdsDataService {
 
             // 1. Check Abbreviation
             if (abbreviations.has(upperWord)) {
-                return upperWord; // Keep as ABBREV
+                return upperWord;
             }
 
-            // 2. Check Preposition (length < 2, e.g. "v", "u", "po"?)
-            // User said "prepositions < 2 chars". So length 1?
-            // "состоящих менее чем из двух символов" => Length < 2. So Length == 1.
+            // 2. Keep Existing ALL CAPS (if > 1 char to avoid keeping single 'A' as 'A' if it should be 'a'?)
+            if (word === upperWord && word.length > 1) {
+                return upperWord;
+            }
+
+            // 3. Check Preposition (length < 2, e.g. "v", "u", "po"?)
             if (word.length < 2 && index !== 0) {
                 return word.toLowerCase();
             }
 
-            // 3. Standard Title Case (First Upper, rest lower)
+            // 4. Standard Title Case (First Upper, rest lower)
             return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
         }).join(" ");
     }

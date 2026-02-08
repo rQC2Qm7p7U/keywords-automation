@@ -14,7 +14,7 @@ export const SHEETS = {
   INTENT_TYPES: "Intent Types",
   RAW_DATA: "Raw Data",
   CLEAN_DATA: "Clean Data",
-  SETTINGS: "Ars API Set",
+  SETTINGS: "Settings",
   CLUSTERS: "Clusters",
   REGIONS: "Ars Regions",
   ADS_DATA: "Ads Data"
