@@ -13,10 +13,6 @@ export class AdsDataService {
      * Main function to prepare Ads Data.
      * Reads Keywords -> Processes them -> Writes to Ads Data sheet.
      */
-    /**
-     * Main function to prepare Ads Data.
-     * Reads Keywords -> Processes them -> Writes to Ads Data sheet.
-     */
     prepareAdsData() {
         // Fetch Settings
         const settingsData = this.sheetRepo.getData(SHEETS.SETTINGS);
@@ -27,11 +23,6 @@ export class AdsDataService {
 
         const campaignName = getValue("Campaign Name", "Keywords Automation");
         const targetUrl = getValue("Target URL", "");
-
-        // Settings are mapped to "Max Headline Length" etc.
-        // But the previous formulas used 30, 90, 15. The Logic in `generateAdsRow` doesn't strictly truncate yet, 
-        // but if we want to add truncation logic we can use these values. 
-        // For now, I'll pass them if needed, or just Campaign Name which is the most visible dynamic one.
 
         // Initialize Mappers
         const cleanMapper: SheetDataMapper = this.sheetRepo.getMapper(SHEETS.CLEAN_DATA);
@@ -44,7 +35,6 @@ export class AdsDataService {
         }
 
         // Fetch Abbreviations from "Intent Types"
-        // Use getColumnValues to dynamically find the "Abbreviations" column
         const abbrevValues = this.sheetRepo.getColumnValues(SHEETS.INTENT_TYPES, "Abbreviations");
         const abbreviations = new Set<string>();
         abbrevValues.forEach(v => {
@@ -53,7 +43,6 @@ export class AdsDataService {
 
         // Process Data
         const processedRows = cleanData.map(row => {
-            // Use Mapper to get Keyword safely
             const rowObj = cleanMapper.toObject(row);
             const keyword = String(rowObj["Keyword"] || "");
 
@@ -77,13 +66,13 @@ export class AdsDataService {
         // 1. Campaign Name
         const campaign = campaignName;
 
-        // 2. Ad Group (Use Keyword as Ad Group for SKAGs? Or Generic?)
+        // 2. Ad Group (Use Keyword)
         const adGroup = this.toTitleCase(keyword, abbreviations);
 
         // 3. Keyword (The original keyword)
         const originalKeyword = keyword;
 
-        // 4. Keyword for Headlines (Same as original initially)
+        // 4. Keyword for Headlines
         const keywordForHeadline = keyword;
 
         const rowObj: Record<string, any> = {};
@@ -96,27 +85,10 @@ export class AdsDataService {
 
         // 5. Headlines 1-15 (Ads Case)
         // Headline 1 is special? Currently it just uses the transformed keyword.
-        // If we want H1 to be the keyword transformed:
         rowObj["Headline 1"] = this.toAdsHeadline(keyword, abbreviations);
 
-        // For others, if we had source data we would transform it. 
-        // Currently we don't have distinct sources for H2-H15 in Clean Data. 
-        // The user request implies "This MUST be in strict columns... Implement this".
-        // Use loop to ensure keys exist and are formatted IF data existed. 
-        // Since we only have 'keyword', we can't populate H2-H15 with unique data yet. 
-        // BUT, IF we had a logic to fill them (e.g. from synonyms), we would use it.
-        // For now, I will explicitly set them to empty string OR transform if I had a source.
-        // The prompt says: "This should be in columns Headline 1-15... Implement this in code".
-        // It likely means: "Ensure the transformation logic Is Applied to these columns".
-        // Since I only have `keyword`, I will just loop to creating the keys, maybe empty?
-        // Wait, "Reference logic" implies we want the *capability*. 
-        // Actually, if I look at `toAdsHeadline` it returns a string.
-        // I will just implement the LOOP structure so it's ready. 
-        // And I will ensure `rowObj` has these keys. 
         const HEADLINE_COUNT = 15;
         for (let i = 2; i <= HEADLINE_COUNT; i++) {
-            // Currently empty, but ready for logic. 
-            // If user wants them filled, they need to say with what.
             rowObj[`Headline ${i}`] = "";
         }
 
@@ -131,29 +103,35 @@ export class AdsDataService {
 
     /**
      * Converts text to Title Case / Ads Case.
-      * First letter capitalized.
-     * Prepositions < 2 chars kept lowercase(unless first word).
+     * First letter capitalized.
+     * Prepositions < 2 chars kept lowercase(unless first word), plus specific list.
      * Abbreviations kept as is (if found in abbrev set).
      */
     private toAdsHeadline(text: string, abbreviations: Set<string>): string {
         const words = text.split(/\s+/);
+        // Common prepositions to keep lowercase (unless first word)
+        const IGNORED_WORDS = new Set([
+            "in", "on", "at", "to", "for", "of", "with", "by", "from", "and", "or", "a", "an", "the"
+        ]);
 
         return words.map((word, index) => {
             const upperWord = word.toUpperCase();
+            const lowerWord = word.toLowerCase();
 
             // 1. Check Abbreviation
             if (abbreviations.has(upperWord)) {
                 return upperWord;
             }
 
-            // 2. Keep Existing ALL CAPS (if > 1 char to avoid keeping single 'A' as 'A' if it should be 'a'?)
+            // 2. Keep Existing ALL CAPS (if > 1 char) 
             if (word === upperWord && word.length > 1) {
                 return upperWord;
             }
 
-            // 3. Check Preposition (length < 2, e.g. "v", "u", "po"?)
-            if (word.length < 2 && index !== 0) {
-                return word.toLowerCase();
+            // 3. Smart Lowercase for Prepositions
+            // If it's NOT the first word AND it's in the ignored list OR length < 2 (legacy check)
+            if (index !== 0 && (IGNORED_WORDS.has(lowerWord) || word.length < 2)) {
+                return lowerWord;
             }
 
             // 4. Standard Title Case (First Upper, rest lower)
@@ -168,12 +146,14 @@ export class AdsDataService {
     /**
      * Formats existing Ads Data sheet (Headlines/Descriptions) to Ads Case.
      * Useful for manual edits.
+     * Optimization: Writes ONLY changed columns to preserve formulas in other columns.
+     * Returns a summary message string.
      */
-    formatAdsData() {
+    formatAdsData(): string {
         const sheetName = SHEETS.ADS_DATA;
         const data = this.sheetRepo.getData(sheetName);
         if (!data || data.length === 0) {
-            return; // Nothing to format
+            return "No data in Ads Data sheet.";
         }
 
         const headers = this.sheetRepo.getHeaders(sheetName);
@@ -186,7 +166,7 @@ export class AdsDataService {
             }
         });
 
-        if (targetIndices.length === 0) return;
+        if (targetIndices.length === 0) return "No Headline/Description columns found.";
 
         // 2. Load Abbreviations
         const abbrevValues = this.sheetRepo.getColumnValues(SHEETS.INTENT_TYPES, "Abbreviations");
@@ -195,33 +175,51 @@ export class AdsDataService {
             if (v) abbreviations.add(String(v).toUpperCase());
         });
 
-        // 3. Process Data (In-place modification of rows)
-        let changed = false;
-        const updatedData = data.map(row => {
-            // Create a copy of the row if we are going to modify it? 
-            // map creates a new array if we return a new array.
-            // But if we modify `row` directly... `row` is a mutable array from `data`.
-            // Let's create a new row to be safe/pure.
-            const newRow = [...row];
+        // 3. Process Data & Collect Column Updates
+        // Map of ColumnIndex -> Array of new values (only for changed columns)
+        const columnUpdates = new Map<number, string[]>();
+        let cellsUpdatedCount = 0;
 
-            targetIndices.forEach(colIdx => {
-                if (colIdx < newRow.length) {
-                    const originalVal = String(newRow[colIdx]);
-                    if (originalVal) {
-                        const formattedVal = this.toAdsHeadline(originalVal, abbreviations);
-                        if (formattedVal !== originalVal) {
-                            newRow[colIdx] = formattedVal;
-                            changed = true;
-                        }
-                    }
+        targetIndices.forEach(colIdx => {
+            const newColumnValues: string[] = [];
+            let columnChanged = false;
+
+            data.forEach(row => {
+                let val = "";
+                if (colIdx < row.length) {
+                    val = String(row[colIdx]);
+                }
+
+                if (!val) {
+                    newColumnValues.push("");
+                    return;
+                }
+
+                const formattedVal = this.toAdsHeadline(val, abbreviations);
+                if (formattedVal !== val) {
+                    columnChanged = true;
+                    cellsUpdatedCount++;
+                    newColumnValues.push(formattedVal);
+                } else {
+                    newColumnValues.push(val);
                 }
             });
-            return newRow;
+
+            if (columnChanged) {
+                columnUpdates.set(colIdx, newColumnValues);
+            }
         });
 
-        // 4. Write back ONLY if changed (Performance)
-        if (changed) {
-            this.sheetRepo.setData(sheetName, updatedData);
+        // 4. Write back ONLY changed columns
+        if (columnUpdates.size > 0) {
+            columnUpdates.forEach((values, colIdx) => {
+                const colName = headers[colIdx];
+                this.sheetRepo.setColumnValues(sheetName, colName, values);
+            });
+
+            return `Formatted ${cellsUpdatedCount} cells in ${columnUpdates.size} columns.`;
+        } else {
+            return "No formatting changes needed.";
         }
     }
 }

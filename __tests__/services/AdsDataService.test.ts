@@ -10,6 +10,7 @@ interface MockSheetRepo extends ISheetRepository {
     getMapper: jest.Mock;
     clearContent: jest.Mock;
     getColumnValues: jest.Mock;
+    setColumnValues: jest.Mock;
 }
 
 interface MockMapper {
@@ -93,25 +94,6 @@ describe("AdsDataService", () => {
         // 4. Assertions
         expect(mockSheetRepo.getData).toHaveBeenCalledWith("Clean Data");
 
-        // Verify abbreviation handling in headline generation
-        // "buy" -> "Buy"
-        // "iphone" -> "iPhone" (matches abbrev case if logic allows? Logic says 'matches abbrev set'. 
-        // Logic: if abbreviations.has(upperWord) -> return upperWord.
-        // Wait, current logic in service: 
-        // if (abbreviations.has(upperWord)) return upperWord;
-        // So if "IPHONE" is in abbrev set, it returns "IPHONE".
-        // My mock return "iPhone", "PRO". 
-        // getColumnValues returns strings. Service logic:
-        // abbreviations.add(String(v).toUpperCase()); 
-        // So "iPhone" becomes "IPHONE" in SET.
-        // "buy iphone 15 pro" -> "IPHONE", "PRO".
-        // "buy" -> "Buy"
-        // "15" -> "15"
-        // Result: "Buy IPHONE 15 PRO"
-
-        // Check what logic actually does:
-        // rowObj["Headline 1"] should be "Buy IPHONE 15 PRO"
-
         const expectedObj = {
             "Campaign": "Test Camp",
             "Ad Group": "Buy IPHONE 15 PRO",
@@ -135,17 +117,11 @@ describe("AdsDataService", () => {
 
         service.prepareAdsData();
 
-        // "tours" -> "Tours"
-        // "in" -> length 2. Logic: if (word.length < 2 && index !== 0) -> lower.
-        // "in" length is exactly 2. So it enters 'Standard Title Case' -> "In".
-        // Wait, logic: `if (word.length < 2 ...)` implies 1 char words.
-        // If we want "in" to be lower, logic should be `<= 2` or `< 3`. 
-        // Let's verify what the code DOES vs intent.
-        // Code: `if (word.length < 2 ...)` -> Just 1 char words like "v", "u".
-        // So "in" becomes "In".
-
         expect(mockMapperAds.toArray).toHaveBeenCalledWith(expect.objectContaining({
-            "Headline 1": "Tours In Moscow",
+            "Headline 1": "Tours in Moscow", // 'in' should be lower now with smart casing logic? 
+            // Wait, prepareAdsData calls `toAdsHeadline` too? Yes.
+            // And now `toAdsHeadline` has smart casing.
+            // So "tours in moscow" -> "Tours in Moscow".
             "Headline 2": "",
             "Description 1": ""
         }));
@@ -173,7 +149,7 @@ describe("AdsDataService", () => {
         expect(() => service.prepareAdsData()).toThrow("No data in Clean Data sheet");
     });
 
-    test("formatAdsData updates headlines and descriptions correctly", () => {
+    test("formatAdsData updates headlines and descriptions correctly using column updates", () => {
         // 1. Mock Data
         mockSheetRepo.getData.mockReturnValue([
             ["Campaign 1", "Ad Group 1", "keyword 1", "", "", "ugly headline", "", "ugly description"]
@@ -189,19 +165,29 @@ describe("AdsDataService", () => {
         service.formatAdsData();
 
         // 3. Verify
-        expect(mockSheetRepo.setData).toHaveBeenCalledWith("Ads Data", expect.any(Array));
-        const savedData = mockSheetRepo.setData.mock.calls[0][1];
+        // Should NOT call setData (which overwrites everything)
+        expect(mockSheetRepo.setData).not.toHaveBeenCalled();
 
-        // Check row 0
-        // Headline 1 (index 5) -> "Ugly Headline"
-        // Description 1 (index 7) -> "Ugly Description"
-        expect(savedData[0][5]).toBe("Ugly Headline");
-        expect(savedData[0][7]).toBe("Ugly Description");
+        // Should call setColumnValues for "Headline 1" and "Description 1"
+        expect(mockSheetRepo.setColumnValues).toHaveBeenCalledTimes(2);
+
+        // Verify Headline 1 update
+        // Arg 1: Sheet Name, Arg 2: Col Name, Arg 3: Values Array
+        expect(mockSheetRepo.setColumnValues).toHaveBeenCalledWith(
+            "Ads Data",
+            "Headline 1",
+            ["Ugly Headline"]
+        );
+        expect(mockSheetRepo.setColumnValues).toHaveBeenCalledWith(
+            "Ads Data",
+            "Description 1",
+            ["Ugly Description"]
+        );
     });
 
-    test("formatAdsData respects abbreviations", () => {
+    test("formatAdsData respects abbreviations and ignored words", () => {
         mockSheetRepo.getData.mockReturnValue([
-            ["...", "...", "...", "...", "...", "visit usa now", "...", "..."]
+            ["...", "...", "...", "...", "...", "visit usa in summer", "...", "..."]
         ]);
         mockSheetRepo.getHeaders.mockReturnValue([
             "A", "B", "C", "D", "E", "Headline 1", "F", "G"
@@ -210,7 +196,10 @@ describe("AdsDataService", () => {
 
         service.formatAdsData();
 
-        const savedData = mockSheetRepo.setData.mock.calls[0][1];
-        expect(savedData[0][5]).toBe("Visit USA Now");
+        expect(mockSheetRepo.setColumnValues).toHaveBeenCalledWith(
+            "Ads Data",
+            "Headline 1",
+            ["Visit USA in Summer"] // 'in' should be lower
+        );
     });
 });

@@ -72,8 +72,8 @@ function handlePrepareAdsData() {
  */
 function handleFormatAdsData() {
   const adsService = new AdsDataService(sheetRepo);
-  adsService.formatAdsData();
-  SpreadsheetApp.getActiveSpreadsheet().toast("Ads Data Formatted Successfully!");
+  const msg = adsService.formatAdsData();
+  SpreadsheetApp.getActiveSpreadsheet().toast(msg);
 }
 
 
