@@ -41,27 +41,13 @@ export class CleanupService {
         const rawSheetName = this.configRepo.getSheetName("RAW_DATA");
         const cleanSheetName = this.configRepo.getSheetName("CLEAN_DATA");
 
+        // Initialize Mappers
+        const rawMapper = this.sheetRepo.getMapper(rawSheetName);
+        const cleanMapper = this.sheetRepo.getMapper(cleanSheetName);
+
         // 1. Get Raw Data
         const rawData = this.sheetRepo.getData(rawSheetName);
         if (!rawData || rawData.length === 0) return 0;
-
-        // We need column indices for mapping, but we can assume order or look it up via Repo?
-        // The repo doesn't expose `getColumnIndex` publicly. We should probably use `getColumnValues` or just iterate headers.
-        // For performance, getting full data array is better.
-        // Let's rely on Repo's knowledge of columns if we want to be strict, but for now we'll assume standard column names
-        // or just use `getColumnValues` to build objects? No, iterating row array is faster.
-        // Let's use `getHeaders` to map dynamically.
-
-        const rawHeaders = this.sheetRepo.getHeaders(rawSheetName);
-        const getIdx = (name: string) => rawHeaders.indexOf(name);
-
-        const idxKeyword = getIdx("Keyword");
-        const idxSearches = getIdx("Avg. monthly searches");
-        const idxComp = getIdx("Competition index");
-        const idxBidLow = getIdx("Bid Low");
-        const idxBidHigh = getIdx("Bid High");
-
-        if (idxKeyword === -1) throw new Error("Keyword column not found in Raw Data");
 
         const cleanData: any[] = [];
         const rawSearches: number[] = [];
@@ -70,46 +56,44 @@ export class CleanupService {
         const rawBidHigh: number[] = [];
 
         rawData.forEach(row => {
-            const keyword = row[idxKeyword];
-            const searches = this.parseNumber(row[idxSearches]);
-            const comp = this.parseNumber(row[idxComp]);
-            const bidLow = this.parseNumber(row[idxBidLow]);
-            const bidHigh = this.parseNumber(row[idxBidHigh]);
+            const rawObj = rawMapper.toObject(row);
+            const keyword = rawObj["Keyword"];
+
+            // Skip if no keyword? 
+            // if (!keyword) return; 
+
+            // Parse numbers (using Column Names to access values)
+            const searches = this.parseNumber(rawObj["Avg. monthly searches"]);
+            const comp = this.parseNumber(rawObj["Competition index"]);
+            const bidLow = this.parseNumber(rawObj["Bid Low"]);
+            const bidHigh = this.parseNumber(rawObj["Bid High"]);
 
             rawSearches.push(searches);
             rawComp.push(comp);
             rawBidLow.push(bidLow);
             rawBidHigh.push(bidHigh);
 
-            cleanData.push([
-                keyword,
-                "", // Negative
-                searches,
-                comp,
-                bidLow,
-                bidHigh
-            ]);
+            // Construct Clean Data Object
+            const cleanObj: Record<string, any> = {};
+            cleanObj["Keyword"] = keyword;
+            cleanObj["Negative"] = ""; // Initialize as empty
+            cleanObj["Avg. monthly searches"] = searches;
+            cleanObj["Competition index"] = comp;
+            cleanObj["Bid Low"] = bidLow;
+            cleanObj["Bid High"] = bidHigh;
+
+            // Convert to Array using Clean Mapper (handles order)
+            cleanData.push(cleanMapper.toArray(cleanObj));
         });
 
         this.sheetRepo.setData(cleanSheetName, cleanData);
 
         // Update Raw Data columns with parsed numbers
+        // Note: setColumnValues uses getColumnIndex which is now dynamic
         this.sheetRepo.setColumnValues(rawSheetName, "Avg. monthly searches", rawSearches);
         this.sheetRepo.setColumnValues(rawSheetName, "Competition index", rawComp);
         this.sheetRepo.setColumnValues(rawSheetName, "Bid Low", rawBidLow);
         this.sheetRepo.setColumnValues(rawSheetName, "Bid High", rawBidHigh);
-
-        // Format
-        // We need a helper for formatting in Repo? 
-        // The Interface has generic methods. We can implement formatting in logic here using generic approach?
-        // Actually, `formatSheetColumns` was in DataService. We should move that logic to Repo or keep it here?
-        // Formatting is Sheet-specific. Should be in Repo.
-        // I added `formatSheetColumns` as a private method in DataService. let's assume Repo handles basic IO.
-        // If we want to format, we should add `formatColumns` to Repo interface or just do it here if we had access to Sheet object.
-        // But Service shouldn't touch Sheet object.
-        // Let's add `formatColumns` to ISheetRepository later if needed. For now, we skip or use a custom method?
-        // The plan said "Migrate logic". Formatting is logic/presentation.
-        // Let's skipping explicit formatting call for this iteration to focus on data logic, effectively deprecating `formatSheetColumns`.
 
         this.sheetRepo.clearColumnBackgrounds(cleanSheetName, "Negative");
 
@@ -120,15 +104,31 @@ export class CleanupService {
         const data = this.sheetRepo.getData(sheetName);
         if (!data || data.length === 0) return 0;
 
+        const headers = this.sheetRepo.getHeaders(sheetName);
+        const keywordIdx = headers.indexOf("Keyword");
+
+        if (keywordIdx === -1) {
+            // Fallback or Error? If we want to be strict:
+            throw new Error(`Column 'Keyword' not found in ${sheetName} for duplicate removal.`);
+        }
+
         const seen = new Set();
         const uniqueData: any[] = [];
         let removedCount = 0;
 
         data.forEach(row => {
-            const keyword = String(row[0]).trim().toLowerCase(); // Assume Col A is Keyword
-            if (seen.has(keyword)) {
+            // Use dynamic index
+            const val = row[keywordIdx];
+            const keyword = String(val === undefined || val === null ? "" : val).trim().toLowerCase();
+
+            if (keyword && seen.has(keyword)) {
                 removedCount++;
             } else {
+                if (keyword) seen.add(keyword); // Only add if not empty? Or treat empty as same? 
+                // Original logic added empty keys too? 
+                // "String(row[0]).trim().toLowerCase()" -> if empty string, it's "".
+                // If we have multiple empty rows, they are duplicates.
+                // Let's keep original behavior:
                 seen.add(keyword);
                 uniqueData.push(row);
             }

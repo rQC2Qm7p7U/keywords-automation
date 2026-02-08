@@ -119,20 +119,47 @@ function handleCheckLastTask() {
     if (result.status === "FINISHED") {
       const csvData = Utilities.parseCsv(result.data);
       if (csvData.length > 0) {
-        // Assume first row is headers. If we created headers in Structure, we might want to skip them.
-        // Or we can just overwrite if the CSV headers match. 
-        // But to preserve formatting, let's write from Row 2 if we skip headers.
-        // Let's assume CSV includes headers.
+        let dataToWrite: any[][] = [];
 
-        let dataToWrite = csvData.length > 1 ? csvData.slice(1) : [];
-        if (dataToWrite.length > 0) {
-          // Inject "Negative" column at index 2 (Config.ts: Keyword, Group, Negative, ...)
-          // Arsenkin CSV likely: Keyword, Group, Phrases, %, Main, Toponym, URLs
-          // We need to insert "" at index 2.
-          dataToWrite = dataToWrite.map(row => {
-            const newRow = [...row];
-            newRow.splice(2, 0, ""); // Insert empty string at index 2
-            return newRow;
+        // Arsenkin CSV Headers (Assumed based on previous hardcoding analysis)
+        // 0: Keyword (Поисковые запросы)
+        // 1: Group (Название группы)
+        // 2: Phrases (Фраз в группе)
+        // 3: % Agg (Агрегаторов)
+        // 4: Main Pages (Главных страниц)
+        // 5: Toponym (Топоним в запросе)
+        // 6: URLs (URLs группы)
+
+        // Skip header row if present (Arsenkin usually returns headers)
+        const csvRows = csvData.length > 1 ? csvData.slice(1) : [];
+
+        if (csvRows.length > 0) {
+          const clustersMapper = sheetRepo.getMapper(configRepo.getSheetName("CLUSTERS"));
+
+          dataToWrite = csvRows.map(row => {
+            const obj: Record<string, any> = {};
+
+            // Map CSV columns to Sheet Column Names (defined in Config.ts)
+            // We rely on Arsenkin CSV structure being stable.
+            // CSV col 0 (Поисковые запросы) -> Sheet "Keyword"
+            obj["Keyword"] = row[0];
+            // CSV col 1 (Название группы) -> Sheet "Group name"
+            obj["Group name"] = row[1];
+            // CSV col 2 (Фраз в группе) -> Sheet "Phrases in group"
+            obj["Phrases in group"] = row[2];
+            // CSV col 3 (% Агрегаторов) -> Sheet "% Aggregators"
+            obj["% Aggregators"] = row[3];
+            // CSV col 4 (Главных страниц) -> Sheet "Main pages"
+            obj["Main pages"] = row[4];
+            // CSV col 5 (Топоним в запросе) -> Sheet "Toponym in query"
+            obj["Toponym in query"] = row[5];
+            // CSV col 6 (URLs группы) -> Sheet "URLs group"
+            obj["URLs group"] = row[6];
+
+            // Inject Negative
+            obj["Negative"] = "";
+
+            return clustersMapper.toArray(obj);
           });
 
           sheetRepo.setData(configRepo.getSheetName("CLUSTERS"), dataToWrite);

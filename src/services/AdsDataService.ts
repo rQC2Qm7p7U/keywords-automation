@@ -1,5 +1,6 @@
 import { SheetRepository } from "../repositories/SheetRepository";
 import { SHEETS, COLUMNS } from "../Config";
+import { SheetDataMapper } from "../utils/SheetDataMapper";
 
 export class AdsDataService {
     private sheetRepo: SheetRepository;
@@ -32,6 +33,10 @@ export class AdsDataService {
         // but if we want to add truncation logic we can use these values. 
         // For now, I'll pass them if needed, or just Campaign Name which is the most visible dynamic one.
 
+        // Initialize Mappers
+        const cleanMapper: SheetDataMapper = this.sheetRepo.getMapper(SHEETS.CLEAN_DATA);
+        const adsMapper: SheetDataMapper = this.sheetRepo.getMapper(SHEETS.ADS_DATA);
+
         // Fetch Keywords from Clean Data
         const cleanData = this.sheetRepo.getData(SHEETS.CLEAN_DATA);
         if (!cleanData || cleanData.length === 0) {
@@ -39,15 +44,23 @@ export class AdsDataService {
         }
 
         // Fetch Abbreviations from "Intent Types"
-        const intentData = this.sheetRepo.getData(SHEETS.INTENT_TYPES);
-        const abbreviations = this.extractAbbreviations(intentData);
+        // Use getColumnValues to dynamically find the "Abbreviations" column
+        const abbrevValues = this.sheetRepo.getColumnValues(SHEETS.INTENT_TYPES, "Abbreviations");
+        const abbreviations = new Set<string>();
+        abbrevValues.forEach(v => {
+            if (v) abbreviations.add(String(v).toUpperCase());
+        });
 
         // Process Data
         const processedRows = cleanData.map(row => {
-            const keyword = String(row[0]); // Assumes Keyword is 1st column
+            // Use Mapper to get Keyword safely
+            const rowObj = cleanMapper.toObject(row);
+            const keyword = String(rowObj["Keyword"] || "");
+
             if (!keyword) return null;
 
-            return this.generateAdsRow(keyword, abbreviations, campaignName, targetUrl);
+            const adsObj = this.generateAdsRow(keyword, abbreviations, campaignName, targetUrl);
+            return adsMapper.toArray(adsObj);
         }).filter(r => r !== null);
 
         // Write to Ads Data Sheet
@@ -58,28 +71,9 @@ export class AdsDataService {
     }
 
     /**
-     * Extracts abbreviations from Intent Types sheet.
-     * Assumes "Abbreviations" is a specific column.
+     * Generates a single row object for Ads Data sheet.
      */
-    private extractAbbreviations(data: any[][]): Set<string> {
-        const abbrevs = new Set<string>();
-        // Find column index for "Abbreviations" in COLUMNS.INTENT_TYPES
-        // COLUMNS is an array of strings.
-        const colIndex = COLUMNS.INTENT_TYPES.indexOf("Abbreviations");
-        if (colIndex === -1) return abbrevs;
-
-        for (const row of data) {
-            if (row[colIndex]) {
-                abbrevs.add(String(row[colIndex]).toUpperCase());
-            }
-        }
-        return abbrevs;
-    }
-
-    /**
-     * Generates a single row for Ads Data sheet.
-     */
-    private generateAdsRow(keyword: string, abbreviations: Set<string>, campaignName: string, targetUrl: string): any[] {
+    private generateAdsRow(keyword: string, abbreviations: Set<string>, campaignName: string, targetUrl: string): Record<string, any> {
         // 1. Campaign Name
         const campaign = campaignName;
 
@@ -96,60 +90,22 @@ export class AdsDataService {
         // 5. Headlines (CamelCase with Abbreviation logic)
         const h1 = this.toAdsHeadline(keyword, abbreviations);
 
-        // Construct the full 49-column row based on COLUMNS.ADS_DATA order
-        // "Campaign", "Ad Group", "Keyword", 
-        // "Keyword for Headline 1", "Len",
-        // "Headline 1", "Len 1", ...
+        const rowObj: Record<string, any> = {};
 
-        const row = new Array(COLUMNS.ADS_DATA.length).fill("");
+        rowObj["Campaign"] = campaign;
+        rowObj["Ad Group"] = adGroup;
+        rowObj["Keyword"] = originalKeyword;
+        rowObj["Keyword for Headline 1"] = keywordForHeadline;
+        rowObj["Headline 1"] = h1;
+        rowObj["Final URL"] = targetUrl;
 
-        // Mapping (Indices based on Config.ts)
-        row[0] = campaign;      // Campaign
-        row[1] = adGroup;       // Ad Group
-        row[2] = originalKeyword; // Keyword
-        row[3] = keywordForHeadline; // Keyword for HL1
-        // Len cols are formulas, leave empty.
+        // Note: "Campaign" appears twice in columns (First and Last).
+        // SheetDataMapper.toObject/toArray relies on unique keys or just mapping values.
+        // If keys are not unique (e.g. "Campaign" at start and end), the Object will only hold one value.
+        // But `toArray` iterates headers. If "Campaign" is in headers twice, it will read `obj["Campaign"]` twice.
+        // So this works perfectly!
 
-        row[5] = h1; // Headline 1
-
-        // Final URL is at index 41 (based on Config.ts view: "Final URL" is after Description 4 Len)
-        // Let's verify index.
-        // 0-2: Campaign, Ad Group, Keyword
-        // 3-4: Keyword HL, Len
-        // 5-34: HL 1-15 (pairs of 2 -> 30 cols) -> 5 + 30 = 35?
-        // Wait, Header logic:
-        // HL1: 5, Len1: 6 ... HL15: 33, Len15: 34
-        // Desc1: 35, LenD1: 36 ... Desc4: 41, LenD4: 42
-        // Final URL: 43?
-        // Let's check COLUMNS.ADS_DATA in Config.ts again (Step 128)
-        // ... "Description 4", "Len D4", "Final URL", ...
-        // "Description 4" is index 35 + 6 = 41?
-        // Let's rely on indexOf to be safe, or just manual count from Config.ts
-        // Config.ts:
-        // ... "Headline 15", "Len 15", (Indices 33, 34)
-        // "Description 1", "Len D1", (35, 36)
-        // "Description 2", "Len D2", (37, 38)
-        // "Description 3", "Len D3", (39, 40)
-        // "Description 4", "Len D4", (41, 42)
-        // "Final URL" (43)
-        // So Final URL is index 43.
-
-        // However, instead of hardcoding, I'll use the column name to find index if possible?
-        // But `row` is an array. I must know the index.
-        // COLUMNS.ADS_DATA.indexOf("Final URL") is robust.
-
-        const finalUrlIndex = COLUMNS.ADS_DATA.indexOf("Final URL");
-        if (finalUrlIndex !== -1) {
-            row[finalUrlIndex] = targetUrl;
-        }
-
-        row[48] = campaign; // Last column Campaign (Index 48? Check Config.ts)
-        // "Path1", "Len P1", "Path2", "Len P2", "Campaign"
-        // Final URL (43)
-        // Path1 (44), Len P1 (45), Path2 (46), Len P2 (47)
-        // Campaign (48) - Correct.
-
-        return row;
+        return rowObj;
     }
 
     /**

@@ -14,6 +14,23 @@ export interface ISheetRepository {
 }
 
 import { SHEETS, COLUMNS } from "../Config";
+import { SheetDataMapper } from "../utils/SheetDataMapper";
+
+export interface ISheetRepository {
+    getData(sheetName: string): any[][];
+    setData(sheetName: string, data: any[][]): void;
+    appendData(sheetName: string, data: any[][]): void;
+    clearContent(sheetName: string): void;
+    getColumnValues(sheetName: string, colName: string): any[];
+    setColumnValues(sheetName: string, colName: string, values: any[]): void;
+    clearColumnBackgrounds(sheetName: string, colName: string): void;
+    protectHeaderRow(sheetName: string): void;
+    getHeaders(sheetName: string): string[];
+    getBackgrounds(sheetName: string, colName: string): string[][];
+    setBackgrounds(sheetName: string, colName: string, backgrounds: string[][]): void;
+    setCellValue(sheetName: string, row: number, col: number, value: any): void;
+    getMapper(sheetName: string): SheetDataMapper;
+}
 
 export class SheetRepository implements ISheetRepository {
     private getSheet(sheetName: string): GoogleAppsScript.Spreadsheet.Sheet {
@@ -24,19 +41,8 @@ export class SheetRepository implements ISheetRepository {
     }
 
     private getColumnIndex(sheetName: string, colName: string): number {
-        let cols: string[] | null = null;
-
-        // Check global COLUMNS object (defined in Config.ts/globals.d.ts)
-        // In a pure specific implementation we might want to inject config, 
-        // but for now we rely on the global Project Config to keep it simple.
-        if (sheetName === SHEETS.RAW_DATA) cols = COLUMNS.RAW_DATA;
-        else if (sheetName === SHEETS.CLEAN_DATA) cols = COLUMNS.CLEAN_DATA;
-        else if (sheetName === SHEETS.INTENT_TYPES) cols = COLUMNS.INTENT_TYPES;
-        else if (sheetName === SHEETS.CLUSTERS) cols = COLUMNS.CLUSTERS;
-        else if (sheetName === SHEETS.SETTINGS) cols = COLUMNS.SETTINGS;
-
-        if (!cols) return -1;
-        return cols.indexOf(colName);
+        const headers = this.getHeaders(sheetName);
+        return headers.indexOf(colName);
     }
 
     getData(sheetName: string): any[][] {
@@ -163,4 +169,12 @@ export class SheetRepository implements ISheetRepository {
 
     // Specific Data Access Methods that were loosely in Structure/Service
     // e.g. getting settings
+
+    getMapper(sheetName: string): SheetDataMapper {
+        const headers = this.getHeaders(sheetName);
+        if (headers.length === 0) {
+            throw new Error(`Sheet '${sheetName}' has no headers. Cannot create mapper.`);
+        }
+        return new SheetDataMapper(headers);
+    }
 }
