@@ -60,16 +60,14 @@ describe("CleanupService", () => {
     describe("transferRawToClean", () => {
         test("should parse numbers correctly during transfer", () => {
             // Mock Raw Data
-            mockSheetRepo.getData.mockReturnValue([["k1"]]);
-
-            // Mock Mapper Returns
-            mockMapper.toObject.mockReturnValue({
-                "Keyword": "k1",
-                "Avg. monthly searches": "1 000,50", // Russian format often uses space and comma
-                "Competition index": "0,5",
-                "Bid Low": "10.00",
-                "Bid High": ""
-            });
+            // Keyword(0), Currency(1), Searches(2), ..., Comp Index(6), Bid Low(7), Bid High(8)
+            const row: any[] = [];
+            row[0] = "k1";
+            row[2] = "1 000,50";
+            row[6] = "0,5";
+            row[7] = "10.00";
+            row[8] = "";
+            mockSheetRepo.getData.mockReturnValue([row]);
 
             mockMapper.toArray.mockImplementation((obj) => [obj["Keyword"], obj["Avg. monthly searches"]]);
 
@@ -78,7 +76,6 @@ describe("CleanupService", () => {
             expect(count).toBe(1);
 
             // Verify setData was called with cleaned numbers
-            // We can check the mockMapper.toArray call to see what object was passed
             expect(mockMapper.toArray).toHaveBeenCalledWith(expect.objectContaining({
                 "Avg. monthly searches": 1000.5,
                 "Competition index": 0.5,
@@ -88,12 +85,10 @@ describe("CleanupService", () => {
         });
 
         test("should handle commas as decimal separator", () => {
-            mockSheetRepo.getData.mockReturnValue([["k1"]]);
-            mockMapper.toObject.mockReturnValue({
-                "Keyword": "k1",
-                "Avg. monthly searches": "1,234" // Could be 1.234 or 1234 depending on locale interpretation? 
-                // Logic: if only comma, replace with dot. -> 1.234
-            });
+            const row: any[] = [];
+            row[0] = "k1";
+            row[2] = "1,234";
+            mockSheetRepo.getData.mockReturnValue([row]);
 
             service.transferRawToClean();
 
@@ -103,15 +98,10 @@ describe("CleanupService", () => {
         });
 
         test("should handle dot as thousands separator if comma is decimal", () => {
-            // Code logic: if (str.includes(',') && str.includes('.')) 
-            // if (lastIndexOf(',') > lastIndexOf('.')) -> dot is thousands, comma is decimal.
-            // e.g. "1.000,50" -> replace dot, replace comma with dot -> 1000.50
-
-            mockSheetRepo.getData.mockReturnValue([["k1"]]);
-            mockMapper.toObject.mockReturnValue({
-                "Keyword": "k1",
-                "Avg. monthly searches": "1.000,50"
-            });
+            const row: any[] = [];
+            row[0] = "k1";
+            row[2] = "1.000,50";
+            mockSheetRepo.getData.mockReturnValue([row]);
 
             service.transferRawToClean();
 
@@ -191,6 +181,41 @@ describe("CleanupService", () => {
                 "Negative",
                 ["neg1", "neg2", "neg3", "neg4"]
             );
+        });
+
+        test("should handle tricky number formats in transferRawToClean", () => {
+            // Mock various weird number formats the user might have
+            const trickyInputs = [
+                { raw: "1 000", expected: 1000 },
+                { raw: "1,000.50", expected: 1000.5 },
+                { raw: "1.000,50", expected: 1000.5 },
+                { raw: "1 000,50", expected: 1000.5 },
+                { raw: "1\u00A0000", expected: 1000 }, // NBSP
+                { raw: "1000", expected: 1000 },
+                { raw: "< 10", expected: 10 },
+            ];
+
+            const data = trickyInputs.map(input => {
+                const row: any[] = [];
+                row[0] = "k1";
+                row[2] = input.raw; // Searches
+                row[6] = "0.1"; // Comp
+                row[7] = "0.1"; // Bid Low
+                row[8] = "0.1"; // Bid High
+                return row;
+            });
+
+            mockSheetRepo.getData.mockReturnValue(data);
+
+            mockMapper.toArray.mockClear();
+
+            service.transferRawToClean();
+
+            trickyInputs.forEach((input, index) => {
+                expect(mockMapper.toArray).toHaveBeenNthCalledWith(index + 1, expect.objectContaining({
+                    "Avg. monthly searches": input.expected
+                }));
+            });
         });
     });
 });

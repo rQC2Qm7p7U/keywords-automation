@@ -16,6 +16,12 @@ export class CleanupService {
         if (typeof value === 'number') return value;
 
         let str = String(value).trim();
+
+        // Handle "< 10" or similar
+        if (str.startsWith("<")) {
+            str = str.replace("<", "").trim();
+        }
+
         str = str.replace(/\s+/g, '');
 
         if (str.includes(',') && str.includes('.')) {
@@ -56,17 +62,15 @@ export class CleanupService {
         const rawBidHigh: number[] = [];
 
         rawData.forEach(row => {
-            const rawObj = rawMapper.toObject(row);
-            const keyword = rawObj["Keyword"];
+            // Use index-based access for Raw Data to be robust against Header changes (e.g. user pasted GKP data with headers)
+            // Config order: Keyword(0), Currency(1), Searches(2), ..., Comp Index(6), Bid Low(7), Bid High(8)
+            const keyword = row[0];
 
-            // Skip if no keyword? 
-            // if (!keyword) return; 
-
-            // Parse numbers (using Column Names to access values)
-            const searches = this.parseNumber(rawObj["Avg. monthly searches"]);
-            const comp = this.parseNumber(rawObj["Competition index"]);
-            const bidLow = this.parseNumber(rawObj["Bid Low"]);
-            const bidHigh = this.parseNumber(rawObj["Bid High"]);
+            // Parse numbers using indices
+            const searches = this.parseNumber(row[2]);
+            const comp = this.parseNumber(row[6]);
+            const bidLow = this.parseNumber(row[7]);
+            const bidHigh = this.parseNumber(row[8]);
 
             rawSearches.push(searches);
             rawComp.push(comp);
