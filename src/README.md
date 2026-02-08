@@ -10,6 +10,7 @@ This project is a Google Apps Script application designed to automate the manage
   - Duplicate removal (Raw & Clean data).
   - Advanced negative keyword filtering (optimized for performance).
   - Data transfer and formatting between stages.
+  - **Ads Data Formatting**: Smart casing and Google Ads policy compliance (cleaning punctuation/symbols) via specialized tool.
 - **Arsenkin Integration**:
   - **Clustering**: Automated keyword clustering via Arsenkin API.
   - **Optimized Region Search**: Bilingual (Ru/En) search with a dependent dropdown to handle 40,000+ regions without UI lag.

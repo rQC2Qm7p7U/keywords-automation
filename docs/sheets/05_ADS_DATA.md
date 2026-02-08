@@ -35,4 +35,23 @@
 ## Automation
 - **Generation**: Triggered by user action.
 - **Case Transformation**: Keywords are converted to "Ads Case" (Title Case), respecting **Abbreviations** defined in *Intent Types*.
-- **Manual Formatting**: Use the menu **"8. Форматировать объявления"** to re-apply Ads Case formatting to the sheet (e.g., after manual edits).
+- **Manual Formatting**: Use the menu **"8. Форматировать объявления"** to re-apply Ads Case formatting to the sheet.
+    
+    ### Formatting Rules (Button 8)
+    1.  **Smart Casing**:
+        *   Converts text to **Title Case** (e.g., "buy iphone" -> "Buy Iphone").
+        *   **Abbreviations**: Keeps known abbreviations (defined in *Intent Types*) in ALL CAPS (e.g., "USA", "SEO").
+        *   **Ignored Words**: Keeps common prepositions (`in`, `on`, `at`, `for`, `with`, etc.) lowercase, unless they are the first word (e.g., "Tours in Moscow").
+    
+    2.  **Google Ads Compliance**:
+        *   **Headlines**: Automatically removes all **exclamation marks (!)** to prevent disapproval.
+        *   **Symbols**: Removes forbidden characters like `@`, `<`, `>`.
+        *   **Punctuation**: 
+            *   Fixes spacing after punctuation (e.g., "Word,Word" -> "Word, Word").
+            *   Removes duplicate punctuation (e.g., "Word.." -> "Word.").
+        *   **Spacing**: Collapses multiple spaces into one.
+
+    3.  **Formula Preservation**:
+        *   The tool calculates changes and **only updates the columns that need it** (Headline 1-15, Description 1-4).
+        *   This ensures that **"Len" columns** (which contain Array Formulas) are **NEVER overwritten** or deleted.
+
