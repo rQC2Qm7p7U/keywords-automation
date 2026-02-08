@@ -157,7 +157,14 @@ export class CleanupService {
         const addIfValid = (val: any) => {
             if (val) {
                 const str = String(val).trim().toLowerCase();
-                if (str) allNegatives.add(str);
+                if (str) {
+                    // Split by comma or semicolon
+                    const parts = str.split(/[;,]/);
+                    parts.forEach(part => {
+                        const cleanPart = part.trim();
+                        if (cleanPart) allNegatives.add(cleanPart);
+                    });
+                }
             }
         };
 

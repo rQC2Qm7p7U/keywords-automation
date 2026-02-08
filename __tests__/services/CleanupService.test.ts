@@ -152,6 +152,7 @@ describe("CleanupService", () => {
                 if (sheet === "RAW_DATA") return ["neg1", " NEG2 "];
                 if (sheet === "CLEAN_DATA") return ["neg2", "neg3"];
                 if (sheet === "INTENT_TYPES") return ["neg1"];
+                if (sheet === "CLUSTERS") return [];
                 return [];
             });
 
@@ -172,6 +173,24 @@ describe("CleanupService", () => {
             // RAW_DATA has "neg1", " NEG2 ". Set is {neg1, neg2, neg3}.
             // Both should be highlighted.
             expect(mockSheetRepo.setBackgrounds).toHaveBeenCalled();
+        });
+
+        test("should split negatives by comma and semicolon", () => {
+            mockSheetRepo.getColumnValues.mockImplementation((sheet) => {
+                if (sheet === "RAW_DATA") return ["neg1, neg2", "neg3; neg4"];
+                return [];
+            });
+
+            mockSheetRepo.getBackgrounds.mockReturnValue([["#ffffff"], ["#ffffff"]]);
+
+            const count = service.collectNegativeKeywords();
+
+            expect(count).toBe(4); // neg1, neg2, neg3, neg4
+            expect(mockSheetRepo.setColumnValues).toHaveBeenCalledWith(
+                "INTENT_TYPES",
+                "Negative",
+                ["neg1", "neg2", "neg3", "neg4"]
+            );
         });
     });
 });
