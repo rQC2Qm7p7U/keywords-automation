@@ -13,6 +13,8 @@ export interface ISheetRepository {
     setCellValue(sheetName: string, row: number, col: number, value: any): void;
 }
 
+import { SHEETS, COLUMNS } from "../Config";
+
 export class SheetRepository implements ISheetRepository {
     private getSheet(sheetName: string): GoogleAppsScript.Spreadsheet.Sheet {
         const ss = SpreadsheetApp.getActiveSpreadsheet();

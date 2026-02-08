@@ -5,6 +5,11 @@ import { StateRepository } from "./repositories/StateRepository";
 import { CleanupService } from "./services/CleanupService";
 import { ClusterService } from "./services/ClusterService";
 
+import { createProjectMenu } from "./UI";
+import { createStructure } from "./Structure";
+import { CONFIG, SHEETS } from "./Config";
+import { MESSAGES } from "./Messages";
+
 // --- Composition Root ---
 const sheetRepo = new SheetRepository();
 const arsenkinRepo = new ArsenkinRepository();
@@ -23,8 +28,29 @@ function onOpen(e: GoogleAppsScript.Events.SheetsOnOpen) {
 
 // 1. Create Structure
 function handleCreateStructure() {
-  createStructure(); // Still global in Structure.ts
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.alert(
+    MESSAGES.UI.TITLE_WARNING,
+    MESSAGES.WARNINGS.CREATE_STRUCTURE,
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response == ui.Button.YES) {
+    createStructure();
+  }
 }
+
+// Expose to Global Scope for GAS
+(globalThis as any).onOpen = onOpen;
+(globalThis as any).handleCreateStructure = handleCreateStructure;
+(globalThis as any).handleRemoveDuplicates = handleRemoveDuplicates;
+(globalThis as any).handleCollectNegatives = handleCollectNegatives;
+(globalThis as any).handleTransferRawToClean = handleTransferRawToClean;
+(globalThis as any).handleCleanKeysFromNegatives = handleCleanKeysFromNegatives;
+(globalThis as any).handleRunClustering = handleRunClustering;
+(globalThis as any).handleCheckLastTask = handleCheckLastTask;
+(globalThis as any).handleSetArsenkinToken = handleSetArsenkinToken;
+
 
 // 2. Remove Duplicates
 function handleRemoveDuplicates() {

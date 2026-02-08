@@ -3,11 +3,24 @@
  * Contains the logic for managing the spreadsheet structure.
  */
 
+import { SHEETS, COLUMNS, CONFIG } from "./Config";
+import { MESSAGES } from "./Messages";
+// I need to check what Structure.ts actually uses.
+// It uses SHEETS, COLUMNS, MESSAGES (toast), SETTINGS?
+// Config.ts viewed earlier had CONFIG, SHEETS, COLUMNS, MENU. It didn't have MESSAGES?
+// Let me double check Config.ts content from previous steps. 
+// Step 49 showed Config.ts. It had CONFIG, SHEETS, COLUMNS, MENU. No MESSAGES.
+// Code.ts uses MESSAGES?
+// Code.ts: `const msg = MESSAGES.SUCCESS...`
+// Messages.ts (renamed from Messages.gs) likely contains MESSAGES.
+// I need to export MESSAGES from Messages.ts too.
+
+
 /**
  * Deletes all existing sheets and creates the new structure.
  * This is a destructive operation.
  */
-function createStructure() {
+export function createStructure() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheets = ss.getSheets();
 

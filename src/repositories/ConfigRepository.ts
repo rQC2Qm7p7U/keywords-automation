@@ -1,3 +1,5 @@
+import { CONFIG, SHEETS } from "../Config";
+
 export interface IConfigRepository {
     getSheetName(key: "RAW_DATA" | "CLEAN_DATA" | "INTENT_TYPES" | "CLUSTERS" | "SETTINGS" | "REGIONS"): string;
     getProjectName(): string;
