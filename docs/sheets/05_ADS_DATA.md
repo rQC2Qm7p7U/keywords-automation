@@ -22,5 +22,16 @@
 | **Path1** | `String` | URL Path 1 (Display URL). | **AdsDataService**. |
 | **Path2** | `String` | URL Path 2 (Display URL). | **AdsDataService**. |
 
+## Formulas & Formatting
+- **"Len" Columns**: All columns starting with "Len" (e.g., `Len 1`, `Len D1`) contain **Array Formulas** that calculate remaining characters:
+    *   **Headlines**: Limit 30 chars.
+    *   **Descriptions**: Limit 90 chars.
+    *   **Paths**: Limit 15 chars.
+- **Conditional Formatting**:
+    *   🔴 **Red**: Negative remaining characters (Over limit).
+    *   🟡 **Yellow**: 1-5 characters remaining (Near limit).
+    *   🟢 **Green**: Exactly 0 characters remaining (Perfect fit).
+
 ## Automation
-- **Generation**: Triggered by user action (implementation pending/in-progress for sidebar button).
+- **Generation**: Triggered by user action.
+- **Case Transformation**: Keywords are converted to "Ads Case" (Title Case), respecting **Abbreviations** defined in *Intent Types*.
