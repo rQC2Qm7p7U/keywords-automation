@@ -85,7 +85,8 @@ export class AdsDataService {
 
         // 5. Headlines 1-15 (Ads Case)
         // Headline 1 is special? Currently it just uses the transformed keyword.
-        rowObj["Headline 1"] = this.toAdsHeadline(keyword, abbreviations);
+        // Pass true for isHeadline to enforce strict rules (e.g. no !)
+        rowObj["Headline 1"] = this.toAdsHeadline(keyword, abbreviations, true);
 
         const HEADLINE_COUNT = 15;
         for (let i = 2; i <= HEADLINE_COUNT; i++) {
@@ -102,13 +103,38 @@ export class AdsDataService {
     }
 
     /**
-     * Converts text to Title Case / Ads Case.
-     * First letter capitalized.
-     * Prepositions < 2 chars kept lowercase(unless first word), plus specific list.
-     * Abbreviations kept as is (if found in abbrev set).
+     * Converts text to Title Case / Ads Case and applies Google Ads cleaning rules.
+     * @param text Text to transform
+     * @param abbreviations Set of abbreviations to keep
+     * @param isHeadline If true, applies strict Headline rules (no "!", etc.)
      */
-    private toAdsHeadline(text: string, abbreviations: Set<string>): string {
-        const words = text.split(/\s+/);
+    private toAdsHeadline(text: string, abbreviations: Set<string>, isHeadline: boolean = true): string {
+        let cleaned = text;
+
+        // --- Google Ads Cleaning Rules ---
+
+        // 1. Remove Forbidden Symbols (@ < >)
+        cleaned = cleaned.replace(/[@<>]/g, "");
+
+        // 2. Headlines: No Exclamation Marks
+        if (isHeadline) {
+            cleaned = cleaned.replace(/!/g, "");
+        }
+
+        // 3. Fix Punctuation Spacing: Comma/Exclam/Question/Colon/Semi-colon followed by non-space
+        // Safe set: , ! ? : ;
+        cleaned = cleaned.replace(/([,?!:;])(?=[^\s])/g, '$1 ');
+
+        // 4. Remove Duplicate Punctuation (e.g. ",,")
+        cleaned = cleaned.replace(/([,?!:;])\1+/g, '$1');
+
+        // 5. Spacing (Collapse multiple spaces and trim)
+        cleaned = cleaned.replace(/\s+/g, " ").trim();
+
+        // --------------------------------
+
+        const words = cleaned.split(/\s+/);
+
         // Common prepositions to keep lowercase (unless first word)
         const IGNORED_WORDS = new Set([
             "in", "on", "at", "to", "for", "of", "with", "by", "from", "and", "or", "a", "an", "the"
@@ -140,7 +166,7 @@ export class AdsDataService {
     }
 
     private toTitleCase(str: string, abbreviations: Set<string>) {
-        return this.toAdsHeadline(str, abbreviations);
+        return this.toAdsHeadline(str, abbreviations, true);
     }
 
     /**
@@ -183,6 +209,9 @@ export class AdsDataService {
         targetIndices.forEach(colIdx => {
             const newColumnValues: string[] = [];
             let columnChanged = false;
+            const colName = headers[colIdx];
+            // Determine if this column is a Headline (strict rules) or Description (lenient rules)
+            const isHeadline = colName.startsWith("Headline");
 
             data.forEach(row => {
                 let val = "";
@@ -195,7 +224,9 @@ export class AdsDataService {
                     return;
                 }
 
-                const formattedVal = this.toAdsHeadline(val, abbreviations);
+                // Apply formatting & cleaning
+                const formattedVal = this.toAdsHeadline(val, abbreviations, isHeadline);
+
                 if (formattedVal !== val) {
                     columnChanged = true;
                     cellsUpdatedCount++;

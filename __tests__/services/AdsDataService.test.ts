@@ -1,4 +1,3 @@
-
 import { AdsDataService } from "../../src/services/AdsDataService";
 import { ISheetRepository } from "../../src/repositories/SheetRepository";
 
@@ -118,10 +117,7 @@ describe("AdsDataService", () => {
         service.prepareAdsData();
 
         expect(mockMapperAds.toArray).toHaveBeenCalledWith(expect.objectContaining({
-            "Headline 1": "Tours in Moscow", // 'in' should be lower now with smart casing logic? 
-            // Wait, prepareAdsData calls `toAdsHeadline` too? Yes.
-            // And now `toAdsHeadline` has smart casing.
-            // So "tours in moscow" -> "Tours in Moscow".
+            "Headline 1": "Tours in Moscow",
             "Headline 2": "",
             "Description 1": ""
         }));
@@ -200,6 +196,56 @@ describe("AdsDataService", () => {
             "Ads Data",
             "Headline 1",
             ["Visit USA in Summer"] // 'in' should be lower
+        );
+    });
+
+    test("toAdsHeadline cleans google ads violations", () => {
+        // Direct method testing (private) or via public method
+        // Using formatAdsData with mock data
+        mockSheetRepo.getData.mockReturnValue([
+            ["...", "...", "...", "...", "...", "Buy Now!!!", "...", "Desc!"]
+        ]);
+        mockSheetRepo.getHeaders.mockReturnValue([
+            "A", "B", "C", "D", "E", "Headline 1", "F", "Description 1"
+        ]);
+        mockSheetRepo.getColumnValues.mockReturnValue([]);
+
+        service.formatAdsData();
+
+        // Check calls. 
+        expect(mockSheetRepo.setColumnValues).toHaveBeenCalledTimes(2);
+
+        // Check Headline 1: "Buy Now!!!" -> "Buy Now" (No !)
+        expect(mockSheetRepo.setColumnValues).toHaveBeenCalledWith(
+            "Ads Data",
+            "Headline 1",
+            ["Buy Now"]
+        );
+
+        // Check Description 1: "Desc!" -> "Desc!" (Allowed in Description)
+        expect(mockSheetRepo.setColumnValues).toHaveBeenCalledWith(
+            "Ads Data",
+            "Description 1",
+            ["Desc!"]
+        );
+    });
+
+    test("toAdsHeadline fixes spacing and punctuation", () => {
+        mockSheetRepo.getData.mockReturnValue([
+            ["...", "...", "...", "...", "...", "word,word  space", "...", "..."]
+        ]);
+        mockSheetRepo.getHeaders.mockReturnValue([
+            "A", "B", "C", "D", "E", "Headline 1", "F", "G"
+        ]);
+        mockSheetRepo.getColumnValues.mockReturnValue([]);
+
+        service.formatAdsData();
+
+        // "word,word  space" -> "word, word space" -> "Word, Word Space"
+        expect(mockSheetRepo.setColumnValues).toHaveBeenCalledWith(
+            "Ads Data",
+            "Headline 1",
+            ["Word, Word Space"]
         );
     });
 });
