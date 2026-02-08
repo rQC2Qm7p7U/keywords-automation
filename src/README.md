@@ -4,6 +4,7 @@
 This project is a Google Apps Script application designed to automate the management and processing of Keyword Planner data in Google Sheets. It follows a modular architecture for maintainability, scalability, and performance.
 
 ## Key Features
+- **Documentation**: [Data Dictionary](docs/DATA_DICTIONARY.md) - Detailed guide to all sheets and columns.
 - **Structure Automation**: One-click generation of the entire spreadsheet workspace.
 - **Data Processing**:
   - Duplicate removal (Raw & Clean data).
