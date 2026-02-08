@@ -46,20 +46,21 @@ export const COLUMNS = {
   ],
   CLEAN_DATA: [
     "Keyword",
+    "Negative",
     "Avg. monthly searches",
     "Competition index",
     "Bid Low",
-    "Bid High",
-    "Negative"
+    "Bid High"
   ],
   CLUSTERS: [
-    "Поисковые запросы",
-    "Название группы",
-    "Фраз в группе",
-    "% Агрегаторов",
-    "Главных страниц",
-    "Топоним в запросе",
-    "URLs группы"
+    "Keyword",
+    "Group name",
+    "Negative",
+    "Phrases in group",
+    "% Aggregators",
+    "Main pages",
+    "Toponym in query",
+    "URLs group"
   ],
   ADS_DATA: [
     "Campaign", "Ad Group", "Keyword",
