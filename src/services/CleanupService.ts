@@ -55,23 +55,43 @@ export class CleanupService {
         const rawBidLow: number[] = [];
         const rawBidHigh: number[] = [];
 
+        const seenKeywords = new Set<string>();
+
         rawData.forEach(row => {
             const rawObj = rawMapper.toObject(row);
-            const keyword = rawObj["Keyword"];
-
-            // Skip if no keyword? 
-            // if (!keyword) return; 
+            const keyword = String(rawObj["Keyword"] || "").trim();
 
             // Parse numbers (using Column Names to access values)
-            const searches = this.parseNumber(rawObj["Avg. monthly searches"]);
-            const comp = this.parseNumber(rawObj["Competition index"]);
-            const bidLow = this.parseNumber(rawObj["Bid Low"]);
-            const bidHigh = this.parseNumber(rawObj["Bid High"]);
+            let searches = this.parseNumber(rawObj["Avg. monthly searches"]);
+            let comp = this.parseNumber(rawObj["Competition index"]);
+            let bidLow = this.parseNumber(rawObj["Bid Low"]);
+            let bidHigh = this.parseNumber(rawObj["Bid High"]);
 
+            // Format numbers
+            searches = Math.round(searches);
+            comp = parseFloat(comp.toFixed(2));
+            bidLow = parseFloat(bidLow.toFixed(2));
+            bidHigh = parseFloat(bidHigh.toFixed(2));
+
+            // Store for Raw Data update (in-place fix)
             rawSearches.push(searches);
             rawComp.push(comp);
             rawBidLow.push(bidLow);
             rawBidHigh.push(bidHigh);
+
+            // Filtering for Clean Data
+
+            // 1. Empty Keyword
+            if (!keyword) return;
+
+            const lowerKeyword = keyword.toLowerCase();
+
+            // 2. Duplicate Keyword (keep first)
+            if (seenKeywords.has(lowerKeyword)) return;
+            seenKeywords.add(lowerKeyword);
+
+            // 3. Low Search Volume
+            if (searches <= 0) return;
 
             // Construct Clean Data Object
             const cleanObj: Record<string, any> = {};
@@ -195,17 +215,20 @@ export class CleanupService {
         const negValues = this.sheetRepo.getColumnValues(intentSheet, "Negative");
         const negativeWords = negValues.map(v => String(v).trim().toLowerCase()).filter(v => v);
 
-        if (negativeWords.length === 0) return 0;
+        // Note: We proceed even if negativeWords is empty, to perform other cleaning tasks.
 
         const cleanData = this.sheetRepo.getData(cleanSheet);
-        if (!cleanData) return 0;
+        if (!cleanData || cleanData.length === 0) return 0;
 
         const headers = this.sheetRepo.getHeaders(cleanSheet);
         const keywordIdx = headers.indexOf("Keyword");
         if (keywordIdx === -1) throw new Error("Keyword column not found");
 
+        const searchesIdx = headers.indexOf("Avg. monthly searches");
+
         const filteredData: any[] = [];
         let removedCount = 0;
+        const seenKeywords = new Set<string>();
 
         const boundary = "(^|[^a-zA-Z0-9а-яА-ЯёЁ])";
         const boundaryEnd = "([^a-zA-Z0-9а-яА-ЯёЁ]|$)";
@@ -216,21 +239,52 @@ export class CleanupService {
         }));
 
         cleanData.forEach(row => {
-            const keyword = String(row[keywordIdx]).trim();
-            const lowerKeyword = keyword.toLowerCase();
-            let isNegative = false;
+            const keyword = String(row[keywordIdx] || "").trim();
 
-            for (const matcher of matchers) {
-                if (lowerKeyword.includes(matcher.text)) {
-                    if (matcher.regex.test(keyword)) {
-                        isNegative = true;
-                        break;
+            // 1. Remove empty keywords
+            if (!keyword) {
+                removedCount++;
+                return;
+            }
+
+            const lowerKeyword = keyword.toLowerCase();
+
+            // 2. Remove duplicate keywords (keep first)
+            if (seenKeywords.has(lowerKeyword)) {
+                removedCount++;
+                return;
+            }
+            seenKeywords.add(lowerKeyword);
+
+            // 3. Remove rows with 0 or empty Avg. searches
+            // Only check if column exists
+            if (searchesIdx !== -1) {
+                const searches = this.parseNumber(row[searchesIdx]);
+                if (searches <= 0) {
+                    removedCount++;
+                    return;
+                }
+            }
+
+            // 4. Remove negatives
+            let isNegative = false;
+            // Only check duplicates if we have matchers
+            if (matchers.length > 0) {
+                for (const matcher of matchers) {
+                    if (lowerKeyword.includes(matcher.text)) {
+                        if (matcher.regex.test(keyword)) {
+                            isNegative = true;
+                            break;
+                        }
                     }
                 }
             }
 
-            if (isNegative) removedCount++;
-            else filteredData.push(row);
+            if (isNegative) {
+                removedCount++;
+            } else {
+                filteredData.push(row);
+            }
         });
 
         if (removedCount > 0) {
