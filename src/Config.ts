@@ -56,6 +56,7 @@ export const COLUMNS = {
     "Keyword",
     "Group name",
     "Negative",
+    "Avg. monthly searches",
     "Phrases in group",
     "% Aggregators",
     "Main pages",

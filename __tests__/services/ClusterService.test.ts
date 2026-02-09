@@ -204,7 +204,8 @@ describe("ClusterService", () => {
             expect(mockMapper.toArray).toHaveBeenCalledWith(expect.objectContaining({
                 "Keyword": "k1",
                 "Group name": "g1",
-                "% Aggregators": "10%"
+                "% Aggregators": "10%",
+                "Avg. monthly searches": ""
             }));
         });
     });

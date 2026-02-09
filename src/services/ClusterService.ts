@@ -123,8 +123,9 @@ export class ClusterService {
             obj["Toponym in query"] = row[5];   // Топоним в запросе
             obj["URLs group"] = row[6];         // URLs группы
 
-            // Inject Negative
+            // Inject Negative & Search Volume (Placeholders)
             obj["Negative"] = "";
+            obj["Avg. monthly searches"] = "";
 
             return clustersMapper.toArray(obj);
         });
