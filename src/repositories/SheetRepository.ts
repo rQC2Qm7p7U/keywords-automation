@@ -1,17 +1,4 @@
-export interface ISheetRepository {
-    getData(sheetName: string): any[][];
-    setData(sheetName: string, data: any[][]): void;
-    appendData(sheetName: string, data: any[][]): void;
-    clearContent(sheetName: string): void;
-    getColumnValues(sheetName: string, colName: string): any[];
-    setColumnValues(sheetName: string, colName: string, values: any[]): void;
-    clearColumnBackgrounds(sheetName: string, colName: string): void;
-    protectHeaderRow(sheetName: string): void;
-    getHeaders(sheetName: string): string[];
-    getBackgrounds(sheetName: string, colName: string): string[][];
-    setBackgrounds(sheetName: string, colName: string, backgrounds: string[][]): void;
-    setCellValue(sheetName: string, row: number, col: number, value: any): void;
-}
+
 
 import { SHEETS, COLUMNS } from "../Config";
 import { SheetDataMapper } from "../utils/SheetDataMapper";
@@ -23,6 +10,7 @@ export interface ISheetRepository {
     clearContent(sheetName: string): void;
     getColumnValues(sheetName: string, colName: string): any[];
     setColumnValues(sheetName: string, colName: string, values: any[]): void;
+    clearColumnValues(sheetName: string, colName: string): void;
     clearColumnBackgrounds(sheetName: string, colName: string): void;
     protectHeaderRow(sheetName: string): void;
     getHeaders(sheetName: string): string[];
@@ -107,6 +95,18 @@ export class SheetRepository implements ISheetRepository {
         // Usually used for updating a column of existing rows.
 
         sheet.getRange(2, colIndex + 1, values.length, 1).setValues(values.map(v => [v]));
+    }
+
+    clearColumnValues(sheetName: string, colName: string): void {
+        const sheet = this.getSheet(sheetName);
+        const colIndex = this.getColumnIndex(sheetName, colName);
+        if (colIndex === -1) return;
+
+        const lastRow = sheet.getLastRow();
+        if (lastRow <= 1) return;
+
+        // Clear content from row 2 to end
+        sheet.getRange(2, colIndex + 1, lastRow - 1, 1).clearContent();
     }
 
     clearColumnBackgrounds(sheetName: string, colName: string): void {

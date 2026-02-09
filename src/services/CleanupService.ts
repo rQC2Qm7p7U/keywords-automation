@@ -143,13 +143,13 @@ export class CleanupService {
     collectNegativeKeywords(): number {
         const rawSheet = this.configRepo.getSheetName("RAW_DATA");
         const cleanSheet = this.configRepo.getSheetName("CLEAN_DATA");
-        const clustersSheet = this.configRepo.getSheetName("CLUSTERS");
+        const clusterSheet = this.configRepo.getSheetName("CLUSTERS");
         const intentSheet = this.configRepo.getSheetName("INTENT_TYPES");
 
-        // Get Negatives from Raw, Clean, and Clusters
+        // Get Negatives from Raw, Clean, Clusters and Intent Types
         const rawNegs = this.sheetRepo.getColumnValues(rawSheet, "Negative");
         const cleanNegs = this.sheetRepo.getColumnValues(cleanSheet, "Negative");
-        const clustersNegs = this.sheetRepo.getColumnValues(clustersSheet, "Negative");
+        const clusterNegs = this.sheetRepo.getColumnValues(clusterSheet, "Negative");
         const existingNegs = this.sheetRepo.getColumnValues(intentSheet, "Negative");
 
         const allNegatives = new Set<string>();
@@ -170,17 +170,18 @@ export class CleanupService {
 
         rawNegs.forEach(addIfValid);
         cleanNegs.forEach(addIfValid);
-        clustersNegs.forEach(addIfValid);
+        clusterNegs.forEach(addIfValid);
         existingNegs.forEach(addIfValid);
 
         const sortedNegatives = Array.from(allNegatives).sort();
 
         // Update Intent Types
+        this.sheetRepo.clearColumnValues(intentSheet, "Negative");
         this.sheetRepo.setColumnValues(intentSheet, "Negative", sortedNegatives);
 
         this.highlightNegativesInSheet(rawSheet, allNegatives);
         this.highlightNegativesInSheet(cleanSheet, allNegatives);
-        this.highlightNegativesInSheet(clustersSheet, allNegatives);
+        this.highlightNegativesInSheet(clusterSheet, allNegatives);
 
         this.highlightConflictsInIntentTypes(sortedNegatives);
 

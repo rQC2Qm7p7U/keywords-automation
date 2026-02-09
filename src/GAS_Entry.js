@@ -58,3 +58,7 @@ function getRegions() {
 function handlePrepareAdsData() {
     return App.handlePrepareAdsData();
 }
+
+function handleFormatAdsData() {
+    return App.handleFormatAdsData();
+}

@@ -184,9 +184,14 @@ export class AdsDataService {
 
         const headers = this.sheetRepo.getHeaders(sheetName);
 
-        // 1. Identify columns to format
+        // 1. Identify columns
         const targetIndices: number[] = [];
+        let keywordForHeadline1Index = -1;
+
         headers.forEach((h, i) => {
+            if (h === "Keyword for Headline 1") {
+                keywordForHeadline1Index = i;
+            }
             if (h.startsWith("Headline ") || h.startsWith("Description ")) {
                 targetIndices.push(i);
             }
@@ -202,7 +207,6 @@ export class AdsDataService {
         });
 
         // 3. Process Data & Collect Column Updates
-        // Map of ColumnIndex -> Array of new values (only for changed columns)
         const columnUpdates = new Map<number, string[]>();
         let cellsUpdatedCount = 0;
 
@@ -210,29 +214,39 @@ export class AdsDataService {
             const newColumnValues: string[] = [];
             let columnChanged = false;
             const colName = headers[colIdx];
-            // Determine if this column is a Headline (strict rules) or Description (lenient rules)
             const isHeadline = colName.startsWith("Headline");
 
             data.forEach(row => {
-                let val = "";
-                if (colIdx < row.length) {
-                    val = String(row[colIdx]);
+                let rawVal = "";
+
+                // SPECIAL LOGIC: Headline 1 comes from "Keyword for Headline 1"
+                if (colName === "Headline 1" && keywordForHeadline1Index !== -1 && keywordForHeadline1Index < row.length) {
+                    rawVal = String(row[keywordForHeadline1Index]);
+                } else if (colIdx < row.length) {
+                    // Otherwise read from itself
+                    rawVal = String(row[colIdx]);
                 }
 
-                if (!val) {
+                if (!rawVal) {
                     newColumnValues.push("");
                     return;
                 }
 
                 // Apply formatting & cleaning
-                const formattedVal = this.toAdsHeadline(val, abbreviations, isHeadline);
+                const formattedVal = this.toAdsHeadline(rawVal, abbreviations, isHeadline);
 
-                if (formattedVal !== val) {
+                // Compare with CURRENT value in the cell (to see if we need to update)
+                let currentCellVal = "";
+                if (colIdx < row.length) {
+                    currentCellVal = String(row[colIdx]);
+                }
+
+                if (formattedVal !== currentCellVal) {
                     columnChanged = true;
                     cellsUpdatedCount++;
                     newColumnValues.push(formattedVal);
                 } else {
-                    newColumnValues.push(val);
+                    newColumnValues.push(currentCellVal);
                 }
             });
 

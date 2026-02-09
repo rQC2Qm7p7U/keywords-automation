@@ -147,8 +147,10 @@ describe("AdsDataService", () => {
 
     test("formatAdsData updates headlines and descriptions correctly using column updates", () => {
         // 1. Mock Data
+        // Col indices:
+        // 0: Campaign, 1: Ad Group, 2: Keyword, 3: Keyword for Headline 1, 4: Len, 5: Headline 1, 6: Len 1, 7: Description 1
         mockSheetRepo.getData.mockReturnValue([
-            ["Campaign 1", "Ad Group 1", "keyword 1", "", "", "ugly headline", "", "ugly description"]
+            ["Campaign 1", "Ad Group 1", "keyword 1", "source keyword 1", "", "old headline", "", "ugly description"]
         ]);
         mockSheetRepo.getHeaders.mockReturnValue([
             "Campaign", "Ad Group", "Keyword", "Keyword for Headline 1", "Len", "Headline 1", "Len 1", "Description 1"
@@ -167,12 +169,11 @@ describe("AdsDataService", () => {
         // Should call setColumnValues for "Headline 1" and "Description 1"
         expect(mockSheetRepo.setColumnValues).toHaveBeenCalledTimes(2);
 
-        // Verify Headline 1 update
-        // Arg 1: Sheet Name, Arg 2: Col Name, Arg 3: Values Array
+        // Verify Headline 1 update - SHOULD COME FROM "source keyword 1"
         expect(mockSheetRepo.setColumnValues).toHaveBeenCalledWith(
             "Ads Data",
             "Headline 1",
-            ["Ugly Headline"]
+            ["Source Keyword 1"]
         );
         expect(mockSheetRepo.setColumnValues).toHaveBeenCalledWith(
             "Ads Data",
@@ -203,7 +204,7 @@ describe("AdsDataService", () => {
         // Direct method testing (private) or via public method
         // Using formatAdsData with mock data
         mockSheetRepo.getData.mockReturnValue([
-            ["...", "...", "...", "...", "...", "Buy Now!!!", "...", "Desc!"]
+            ["...", "...", "...", "...", "...", "Buy Now!!!", "...", "Desc  Space"]
         ]);
         mockSheetRepo.getHeaders.mockReturnValue([
             "A", "B", "C", "D", "E", "Headline 1", "F", "Description 1"
@@ -222,11 +223,11 @@ describe("AdsDataService", () => {
             ["Buy Now"]
         );
 
-        // Check Description 1: "Desc!" -> "Desc!" (Allowed in Description)
+        // Check Description 1: "Desc  Space" -> "Desc Space" (Spacing fix)
         expect(mockSheetRepo.setColumnValues).toHaveBeenCalledWith(
             "Ads Data",
             "Description 1",
-            ["Desc!"]
+            ["Desc Space"]
         );
     });
 
