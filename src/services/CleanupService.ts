@@ -250,7 +250,33 @@ export class CleanupService {
         for (let i = 0; i < values.length; i++) {
             const val = String(values[i]).trim().toLowerCase();
 
-            if (val && negativeSet.has(val)) {
+            if (!val) continue;
+
+            // Split by comma or semicolon to check individual words
+            const parts = val.split(/[;,]/);
+            let hasMatch = false;
+            let allMatched = true;
+
+            for (const part of parts) {
+                const cleanPart = part.trim();
+                // If part is empty (e.g. trailing comma), skip it
+                if (!cleanPart) continue;
+
+                if (negativeSet.has(cleanPart)) {
+                    hasMatch = true;
+                } else {
+                    allMatched = false;
+                }
+            }
+
+            // Highlight if at least one part matched (it was collected)
+            // Or should we require ALL? 
+            // If "a, b" and "a" is collected, "b" is collected. 
+            // Since negativeSet is the UNION of all these, 
+            // if "b" is a valid word, it SHOULD be in negativeSet.
+            // So if hasMatch is true, effectively all valid parts are in negativeSet.
+
+            if (hasMatch && allMatched) {
                 if (backgrounds[i][0] !== "#00ff00") {
                     backgrounds[i][0] = "#00ff00"; // Green
                     changed = true;
