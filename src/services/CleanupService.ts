@@ -207,9 +207,12 @@ export class CleanupService {
         const filteredData: any[] = [];
         let removedCount = 0;
 
+        const boundary = "(^|[^a-zA-Z0-9а-яА-ЯёЁ])";
+        const boundaryEnd = "([^a-zA-Z0-9а-яА-ЯёЁ]|$)";
+
         const matchers = negativeWords.map(word => ({
             text: word,
-            regex: new RegExp("\\b" + this.escapeRegExp(word) + "\\b", "i")
+            regex: new RegExp(boundary + this.escapeRegExp(word) + boundaryEnd, "i")
         }));
 
         cleanData.forEach(row => {
