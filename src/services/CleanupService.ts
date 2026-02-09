@@ -187,11 +187,6 @@ export class CleanupService {
             if (keyword && seen.has(keyword)) {
                 removedCount++;
             } else {
-                if (keyword) seen.add(keyword); // Only add if not empty? Or treat empty as same? 
-                // Original logic added empty keys too? 
-                // "String(row[0]).trim().toLowerCase()" -> if empty string, it's "".
-                // If we have multiple empty rows, they are duplicates.
-                // Let's keep original behavior:
                 seen.add(keyword);
                 uniqueData.push(row);
             }
@@ -251,28 +246,16 @@ export class CleanupService {
         return sortedNegatives.length;
     }
 
-    cleanKeysFromNegatives(): number {
-        const cleanSheet = this.configRepo.getSheetName("CLEAN_DATA");
-        const intentSheet = this.configRepo.getSheetName("INTENT_TYPES");
+    cleanKeysFromNegatives(): { cleanRemoved: number, clustersRemoved: number } {
+        const cleanSheetName = this.configRepo.getSheetName("CLEAN_DATA");
+        const clusterSheetName = this.configRepo.getSheetName("CLUSTERS");
+        const intentSheetName = this.configRepo.getSheetName("INTENT_TYPES");
 
-        const negValues = this.sheetRepo.getColumnValues(intentSheet, "Negative");
+        // Prepare Matchers
+        const negValues = this.sheetRepo.getColumnValues(intentSheetName, "Negative");
         const negativeWords = negValues.map(v => String(v).trim().toLowerCase()).filter(v => v);
 
-        // Note: We proceed even if negativeWords is empty, to perform other cleaning tasks.
-
-        const cleanData = this.sheetRepo.getData(cleanSheet);
-        if (!cleanData || cleanData.length === 0) return 0;
-
-        const headers = this.sheetRepo.getHeaders(cleanSheet);
-        const keywordIdx = headers.indexOf("Keyword");
-        if (keywordIdx === -1) throw new Error("Keyword column not found");
-
-        const searchesIdx = headers.indexOf("Avg. monthly searches");
-
-        const filteredData: any[] = [];
-        let removedCount = 0;
-        const seenKeywords = new Set<string>();
-
+        // Pre-compile regexes for performance
         const boundary = "(^|[^a-zA-Z0-9а-яА-ЯёЁ])";
         const boundaryEnd = "([^a-zA-Z0-9а-яА-ЯёЁ]|$)";
 
@@ -281,7 +264,37 @@ export class CleanupService {
             regex: new RegExp(boundary + this.escapeRegExp(word) + boundaryEnd, "i")
         }));
 
-        cleanData.forEach(row => {
+        // Clean "Clean Data" (Check searches: YES, Dedupe: YES via Set logic in Helper)
+        const cleanRemoved = this.cleanSheetHelper(cleanSheetName, matchers, true, true);
+
+        // Clean "Clusters" (Check searches: NO, Dedupe: NO - strictly removing negatives)
+        const clustersRemoved = this.cleanSheetHelper(clusterSheetName, matchers, false, false);
+
+        return { cleanRemoved, clustersRemoved };
+    }
+
+    /**
+     * Helper to clean a sheet based on Negative Keywords.
+     * @param sheetName Target Sheet Name
+     * @param matchers Compiled regex matchers for negatives
+     * @param checkSearches Whether to filter by "Avg. monthly searches" <= 0
+     * @param checkDuplicates Whether to deduplicate within the sheet
+     */
+    private cleanSheetHelper(sheetName: string, matchers: { text: string, regex: RegExp }[], checkSearches: boolean, checkDuplicates: boolean): number {
+        const data = this.sheetRepo.getData(sheetName);
+        if (!data || data.length === 0) return 0;
+
+        const headers = this.sheetRepo.getHeaders(sheetName);
+        const keywordIdx = headers.indexOf("Keyword");
+        if (keywordIdx === -1) return 0; // Or throw error
+
+        const searchesIdx = headers.indexOf("Avg. monthly searches");
+
+        const filteredData: any[] = [];
+        let removedCount = 0;
+        const seenKeywords = new Set<string>();
+
+        data.forEach(row => {
             const keyword = String(row[keywordIdx] || "").trim();
 
             // 1. Remove empty keywords
@@ -292,16 +305,17 @@ export class CleanupService {
 
             const lowerKeyword = keyword.toLowerCase();
 
-            // 2. Remove duplicate keywords (keep first)
-            if (seenKeywords.has(lowerKeyword)) {
-                removedCount++;
-                return;
+            // 2. Remove duplicate keywords (Optional)
+            if (checkDuplicates) {
+                if (seenKeywords.has(lowerKeyword)) {
+                    removedCount++;
+                    return;
+                }
+                seenKeywords.add(lowerKeyword);
             }
-            seenKeywords.add(lowerKeyword);
 
-            // 3. Remove rows with 0 or empty Avg. searches
-            // Only check if column exists
-            if (searchesIdx !== -1) {
+            // 3. Remove rows with 0 or empty Avg. searches (Optional)
+            if (checkSearches && searchesIdx !== -1) {
                 const searches = this.parseNumber(row[searchesIdx]);
                 if (searches <= 0) {
                     removedCount++;
@@ -311,7 +325,7 @@ export class CleanupService {
 
             // 4. Remove negatives
             let isNegative = false;
-            // Only check duplicates if we have matchers
+            // Only checks regular expressions if matchers exist
             if (matchers.length > 0) {
                 for (const matcher of matchers) {
                     if (lowerKeyword.includes(matcher.text)) {
@@ -331,8 +345,11 @@ export class CleanupService {
         });
 
         if (removedCount > 0) {
-            this.sheetRepo.setData(cleanSheet, filteredData);
-            this.sheetRepo.clearColumnBackgrounds(cleanSheet, "Negative");
+            this.sheetRepo.setData(sheetName, filteredData);
+            // Only clear backgrounds if "Negative" column exists (it usually does for these sheets)
+            if (headers.includes("Negative")) {
+                this.sheetRepo.clearColumnBackgrounds(sheetName, "Negative");
+            }
         }
 
         return removedCount;
@@ -352,14 +369,12 @@ export class CleanupService {
 
             if (!val) continue;
 
-            // Split by comma or semicolon to check individual words
             const parts = val.split(/[;,]/);
             let hasMatch = false;
             let allMatched = true;
 
             for (const part of parts) {
                 const cleanPart = part.trim();
-                // If part is empty (e.g. trailing comma), skip it
                 if (!cleanPart) continue;
 
                 if (negativeSet.has(cleanPart)) {
@@ -368,13 +383,6 @@ export class CleanupService {
                     allMatched = false;
                 }
             }
-
-            // Highlight if at least one part matched (it was collected)
-            // Or should we require ALL? 
-            // If "a, b" and "a" is collected, "b" is collected. 
-            // Since negativeSet is the UNION of all these, 
-            // if "b" is a valid word, it SHOULD be in negativeSet.
-            // So if hasMatch is true, effectively all valid parts are in negativeSet.
 
             if (hasMatch && allMatched) {
                 if (backgrounds[i][0] !== "#00ff00") {
@@ -395,14 +403,13 @@ export class CleanupService {
         if (headers.length === 0) return;
 
         const negSet = new Set(negatives);
-        // Pre-compile regexes for performance
         const matchers = negatives.map(word => ({
             text: word,
             regex: new RegExp("\\b" + this.escapeRegExp(word) + "\\b", "i")
         }));
 
         headers.forEach(header => {
-            if (header === "Negative") return; // Skip Negative column itself
+            if (header === "Negative") return;
 
             const values = this.sheetRepo.getColumnValues(intentSheet, header);
             if (values.length === 0) return;

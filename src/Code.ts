@@ -102,8 +102,8 @@ function handleTransferRawToClean() {
 
 // 5. Clean Keys
 function handleCleanKeysFromNegatives() {
-  const removed = cleanupService.cleanKeysFromNegatives();
-  SpreadsheetApp.getActiveSpreadsheet().toast(`Removed ${removed} rows containing negatives.`);
+  const { cleanRemoved, clustersRemoved } = cleanupService.cleanKeysFromNegatives();
+  SpreadsheetApp.getActiveSpreadsheet().toast(`Removed negatives: ${cleanRemoved} from Clean, ${clustersRemoved} from Clusters.`);
 }
 
 // 6. Run Clustering

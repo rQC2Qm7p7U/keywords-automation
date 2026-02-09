@@ -7,8 +7,10 @@ import { IConfigRepository } from "../../src/repositories/ConfigRepository";
 const mockSheetRepo = {
     getData: jest.fn(),
     setData: jest.fn(),
+    appendData: jest.fn(),
     getColumnValues: jest.fn(),
     setColumnValues: jest.fn(),
+    clearColumnValues: jest.fn(),
     clearColumnBackgrounds: jest.fn(),
     getHeaders: jest.fn(),
     getBackgrounds: jest.fn(),
@@ -34,6 +36,7 @@ describe("CleanupService", () => {
 
         mockSheetRepo.getMapper.mockReturnValue(mockMapper as any);
         mockSheetRepo.getHeaders.mockReturnValue(["Keyword", "Col2"]);
+        mockSheetRepo.getColumnValues.mockReturnValue([]); // Default empty array
         mockMapper.toObject.mockReturnValue({});
         mockMapper.toArray.mockReturnValue([]);
     });
@@ -80,7 +83,7 @@ describe("CleanupService", () => {
             // Verify setData was called with cleaned numbers
             // We can check the mockMapper.toArray call to see what object was passed
             expect(mockMapper.toArray).toHaveBeenCalledWith(expect.objectContaining({
-                "Avg. monthly searches": 1000.5,
+                "Avg. monthly searches": 1001, // Math.round(1000.5) -> 1001
                 "Competition index": 0.5,
                 "Bid Low": 10,
                 "Bid High": 0
@@ -91,14 +94,13 @@ describe("CleanupService", () => {
             mockSheetRepo.getData.mockReturnValue([["k1"]]);
             mockMapper.toObject.mockReturnValue({
                 "Keyword": "k1",
-                "Avg. monthly searches": "1,234" // Could be 1.234 or 1234 depending on locale interpretation? 
-                // Logic: if only comma, replace with dot. -> 1.234
+                "Avg. monthly searches": "1,234" // 1.234
             });
 
             service.transferRawToClean();
 
             expect(mockMapper.toArray).toHaveBeenCalledWith(expect.objectContaining({
-                "Avg. monthly searches": 1.234
+                "Avg. monthly searches": 1 // Math.round(1.234) -> 1
             }));
         });
 
@@ -116,7 +118,7 @@ describe("CleanupService", () => {
             service.transferRawToClean();
 
             expect(mockMapper.toArray).toHaveBeenCalledWith(expect.objectContaining({
-                "Avg. monthly searches": 1000.5
+                "Avg. monthly searches": 1001 // Math.round(1000.5) -> 1001
             }));
         });
     });
@@ -136,12 +138,46 @@ describe("CleanupService", () => {
 
             mockSheetRepo.getHeaders.mockReturnValue(["Keyword"]); // keywordIdx = 0
 
-            const removed = service.cleanKeysFromNegatives();
+            const { cleanRemoved, clustersRemoved } = service.cleanKeysFromNegatives();
 
-            expect(removed).toBe(1);
+            expect(cleanRemoved).toBe(1);
             expect(mockSheetRepo.setData).toHaveBeenCalledWith("CLEAN_DATA", [
                 ["buy iphone"],
                 ["promotional offer"]
+            ]);
+        });
+
+        test("should clean Clusters sheet (negatives only, no search check)", () => {
+            // Mock Negatives
+            mockSheetRepo.getColumnValues.mockImplementation((sheet, col) => {
+                if (sheet === "INTENT_TYPES" && col === "Negative") return ["bad"];
+                return [];
+            });
+
+            // Mock Data for CLEAN_DATA (return empty to focus on Clusters)
+            mockSheetRepo.getData.mockImplementation((sheet) => {
+                if (sheet === "CLEAN_DATA") return [];
+                if (sheet === "CLUSTERS") return [
+                    ["good keyword", "Group A"],
+                    ["bad keyword", "Group B"], // Remove (negative)
+                    ["zero search", "Group C"]  // Keep (no search check for Clusters)
+                ];
+                return [];
+            });
+
+            // Mock Headers
+            mockSheetRepo.getHeaders.mockImplementation((sheet) => {
+                if (sheet === "CLEAN_DATA") return ["Keyword", "Avg. monthly searches"];
+                if (sheet === "CLUSTERS") return ["Keyword", "Group"];
+                return [];
+            });
+
+            const { cleanRemoved, clustersRemoved } = service.cleanKeysFromNegatives();
+
+            expect(clustersRemoved).toBe(1);
+            expect(mockSheetRepo.setData).toHaveBeenCalledWith("CLUSTERS", [
+                ["good keyword", "Group A"],
+                ["zero search", "Group C"]
             ]);
         });
     });
