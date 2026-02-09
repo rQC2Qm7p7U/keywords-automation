@@ -40,6 +40,7 @@ export class CleanupService {
     transferRawToClean(): number {
         const rawSheetName = this.configRepo.getSheetName("RAW_DATA");
         const cleanSheetName = this.configRepo.getSheetName("CLEAN_DATA");
+        const intentSheetName = this.configRepo.getSheetName("INTENT_TYPES");
 
         // Initialize Mappers
         const rawMapper = this.sheetRepo.getMapper(rawSheetName);
@@ -49,19 +50,39 @@ export class CleanupService {
         const rawData = this.sheetRepo.getData(rawSheetName);
         if (!rawData || rawData.length === 0) return 0;
 
+        // 2. Optimization: Pre-fetch Existing Data for Deduplication
+        const existingCleanKeywords = new Set<string>(
+            this.sheetRepo.getColumnValues(cleanSheetName, "Keyword")
+                .map(k => String(k || "").trim().toLowerCase())
+                .filter(k => k)
+        );
+
+        // 3. Optimization: Pre-compile Negative Matchers
+        const negValues = this.sheetRepo.getColumnValues(intentSheetName, "Negative");
+        const negativeWords = negValues.map(v => String(v).trim().toLowerCase()).filter(v => v);
+
+        const boundary = "(^|[^a-zA-Z0-9а-яА-ЯёЁ])";
+        const boundaryEnd = "([^a-zA-Z0-9а-яА-ЯёЁ]|$)";
+
+        const matchers = negativeWords.map(word => ({
+            text: word,
+            regex: new RegExp(boundary + this.escapeRegExp(word) + boundaryEnd, "i")
+        }));
+
         const cleanData: any[] = [];
         const rawSearches: number[] = [];
         const rawComp: number[] = [];
         const rawBidLow: number[] = [];
         const rawBidHigh: number[] = [];
 
-        const seenKeywords = new Set<string>();
+        // Track duplicates within the current batch
+        const currentBatchSeen = new Set<string>();
 
         rawData.forEach(row => {
             const rawObj = rawMapper.toObject(row);
             const keyword = String(rawObj["Keyword"] || "").trim();
 
-            // Parse numbers (using Column Names to access values)
+            // Parse numbers
             let searches = this.parseNumber(rawObj["Avg. monthly searches"]);
             let comp = this.parseNumber(rawObj["Competition index"]);
             let bidLow = this.parseNumber(rawObj["Bid Low"]);
@@ -73,25 +94,45 @@ export class CleanupService {
             bidLow = parseFloat(bidLow.toFixed(2));
             bidHigh = parseFloat(bidHigh.toFixed(2));
 
-            // Store for Raw Data update (in-place fix)
+            // Store for Raw Data update (in-place fix - we update ALL raw rows)
             rawSearches.push(searches);
             rawComp.push(comp);
             rawBidLow.push(bidLow);
             rawBidHigh.push(bidHigh);
 
-            // Filtering for Clean Data
+            // --- FILTERING LOGIC ---
 
             // 1. Empty Keyword
             if (!keyword) return;
 
             const lowerKeyword = keyword.toLowerCase();
 
-            // 2. Duplicate Keyword (keep first)
-            if (seenKeywords.has(lowerKeyword)) return;
-            seenKeywords.add(lowerKeyword);
+            // 2. Duplicate Check (Global & Local)
+            if (existingCleanKeywords.has(lowerKeyword) || currentBatchSeen.has(lowerKeyword)) {
+                return;
+            }
 
             // 3. Low Search Volume
             if (searches <= 0) return;
+
+            // 4. Negative Keyword Check
+            let isNegative = false;
+            // Only check if we have matchers
+            if (matchers.length > 0) {
+                // Optimization: Simple 'includes' check before regex
+                for (const matcher of matchers) {
+                    if (lowerKeyword.includes(matcher.text)) {
+                        if (matcher.regex.test(keyword)) {
+                            isNegative = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (isNegative) return;
+
+            // Mark as seen for this batch
+            currentBatchSeen.add(lowerKeyword);
 
             // Construct Clean Data Object
             const cleanObj: Record<string, any> = {};
@@ -102,20 +143,22 @@ export class CleanupService {
             cleanObj["Bid Low"] = bidLow;
             cleanObj["Bid High"] = bidHigh;
 
-            // Convert to Array using Clean Mapper (handles order)
+            // Convert to Array using Clean Mapper
             cleanData.push(cleanMapper.toArray(cleanObj));
         });
 
-        this.sheetRepo.setData(cleanSheetName, cleanData);
+        // 4. Append Valid Data
+        if (cleanData.length > 0) {
+            this.sheetRepo.appendData(cleanSheetName, cleanData);
+        }
 
-        // Update Raw Data columns with parsed numbers
-        // Note: setColumnValues uses getColumnIndex which is now dynamic
+        // 5. Update Raw Data columns (formatting fix)
         this.sheetRepo.setColumnValues(rawSheetName, "Avg. monthly searches", rawSearches);
         this.sheetRepo.setColumnValues(rawSheetName, "Competition index", rawComp);
         this.sheetRepo.setColumnValues(rawSheetName, "Bid Low", rawBidLow);
         this.sheetRepo.setColumnValues(rawSheetName, "Bid High", rawBidHigh);
 
-        this.sheetRepo.clearColumnBackgrounds(cleanSheetName, "Negative");
+        // Note: We do NOT clear backgrounds in Clean Data because we are appending
 
         return cleanData.length;
     }
