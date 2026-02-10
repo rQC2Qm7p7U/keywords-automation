@@ -6,4 +6,4 @@ coverage
 .vscode
 dist/
 
-DEPLOY_INSTRUCTION_RU.md
+DEPLOY.md
