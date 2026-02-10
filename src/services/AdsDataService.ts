@@ -267,4 +267,95 @@ export class AdsDataService {
             return "No formatting changes needed.";
         }
     }
+
+    /**
+     * Processes a specific range of edits (for onEdit trigger).
+     * Automatically formats Headlines and Descriptions in the edited range.
+     * @param range The edited range from the event object
+     */
+    processRange(range: GoogleAppsScript.Spreadsheet.Range): void {
+        const sheet = range.getSheet();
+        if (sheet.getName() !== SHEETS.ADS_DATA) return;
+
+        const startRow = range.getRow();
+        const numRows = range.getNumRows();
+        const startCol = range.getColumn();
+        const numCols = range.getNumColumns();
+
+        // Optimization: Check if range intersects with Headlines/Descriptions
+        // Headlines/Descriptions usually start from Col 6 (Headline 1) onwards.
+        // Let's get headers to be sure.
+        // We can't cache headers easily in onEdit without PropertiesService, so we just check columns roughly or read headers.
+        // Reading headers (row 1) is fast.
+        const lastCol = sheet.getLastColumn();
+        const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0] as string[];
+
+        const targetIndices: number[] = [];
+        const isHeadlineMap = new Map<number, boolean>(); // ColIndex -> isHeadline
+
+        // Identify which columns in the edited range are relevant
+        for (let c = 0; c < numCols; c++) {
+            const colIdx = startCol + c; // 1-based
+            if (colIdx > headers.length) continue;
+
+            const header = headers[colIdx - 1]; // 0-based
+            if (header && (header.startsWith("Headline") || header.startsWith("Description"))) {
+                targetIndices.push(colIdx);
+                isHeadlineMap.set(colIdx, header.startsWith("Headline"));
+            }
+        }
+
+        if (targetIndices.length === 0) return; // Edited range has no relevant columns
+
+        // Load Abbreviations (Once per edit)
+        // We can't inject repositories easily in onEdit if we use simple triggers vs installable.
+        // But here we are inside the Service which has sheetRepo.
+        // Note: usage in onEdit context requires the service to be initialized with a repo.
+        const abbrevValues = this.sheetRepo.getColumnValues(SHEETS.INTENT_TYPES, "Abbreviations");
+        const abbreviations = new Set<string>();
+        abbrevValues.forEach(v => {
+            if (v) abbreviations.add(String(v).toUpperCase());
+        });
+
+        // Read values ONLY for the edited range
+        // Logic: specific relevant columns? Or just the whole block?
+        // Reading the whole block is easier for mapping back.
+        const values = range.getValues(); // 2D array [row][col] relative to range
+        const newValues = values.map((row, rIdx) => {
+            return row.map((cellVal, cIdx) => {
+                const colAbsIndex = startCol + cIdx; // 1-based absolute column index
+
+                if (!isHeadlineMap.has(colAbsIndex)) {
+                    return cellVal; // Pass through unchanged
+                }
+
+                const isHeadline = isHeadlineMap.get(colAbsIndex) || false;
+                const text = String(cellVal || "");
+
+                if (!text) return "";
+
+                // Apply formatting
+                const newText = this.toAdsHeadline(text, abbreviations, isHeadline);
+                return newText;
+            });
+        });
+
+        // Write back
+        // Optimization: check if anything actually changed?
+        // JSON.stringify compare or just write. Writing is costlier.
+        let changed = false;
+        for (let r = 0; r < numRows; r++) {
+            for (let c = 0; c < numCols; c++) {
+                if (values[r][c] !== newValues[r][c]) {
+                    changed = true;
+                    break;
+                }
+            }
+            if (changed) break;
+        }
+
+        if (changed) {
+            range.setValues(newValues);
+        }
+    }
 }

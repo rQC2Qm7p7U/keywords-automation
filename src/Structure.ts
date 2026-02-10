@@ -101,26 +101,26 @@ export function createStructure() {
   for (let i = 0; i < adsHeaders.length; i++) {
     const colName = adsHeaders[i];
     const colIndex = i + 1;
-    let limit = 0;
+    let limitRef = "";
 
     if (colName.startsWith("Len")) {
-      // Determine limit based on context
-      // "Len" (Headline) -> 30
-      // "Len D" (Description) -> 90
-      // "Len P" (Path) -> 15
+      // Determine limit based on context - referencing Settings Sheet
+      // Row 14: Max Headline Length ($B$14)
+      // Row 15: Max Description Length ($B$15)
+      // Row 16: Max Path Length ($B$16)
 
       if (colName === "Len" || (colName.startsWith("Len ") && !colName.includes("D") && !colName.includes("P"))) {
-        limit = headlineLimit;
+        limitRef = `'${SHEETS.SETTINGS}'!$B$14`;
       } else if (colName.startsWith("Len D")) {
-        limit = descLimit;
+        limitRef = `'${SHEETS.SETTINGS}'!$B$15`;
       } else if (colName.startsWith("Len P")) {
-        limit = pathLimit;
+        limitRef = `'${SHEETS.SETTINGS}'!$B$16`;
       }
 
-      if (limit > 0) {
+      if (limitRef) {
         // Target Column is the one before this (colIndex - 1)
         const targetColLetter = columnToLetter(colIndex - 1);
-        const formula = `=ARRAYFORMULA(IF(${targetColLetter}2:${targetColLetter}="", "", ${limit} - LEN(${targetColLetter}2:${targetColLetter})))`;
+        const formula = `=ARRAYFORMULA(IF(${targetColLetter}2:${targetColLetter}="", "", ${limitRef} - LEN(${targetColLetter}2:${targetColLetter})))`;
 
         adsDataSheet.getRange(2, colIndex).setFormula(formula);
 

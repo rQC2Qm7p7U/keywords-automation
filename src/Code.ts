@@ -174,3 +174,22 @@ function handleSetArsenkinToken() {
     ui.alert("Token saved securely in Script Properties.");
   }
 }
+
+/**
+ * 9. onEdit Trigger for Ads Data Formatting
+ * Automatically formats pasted/edited text in Ads Data sheet.
+ */
+function onEdit(e: GoogleAppsScript.Events.SheetsOnEdit) {
+  if (!e || !e.range) return;
+  const sheet = e.range.getSheet();
+  if (sheet.getName() === SHEETS.ADS_DATA) {
+    const adsService = new AdsDataService(sheetRepo);
+    // Wrap in try-catch to prevent silent failures disrupting the user significantly
+    // though simple triggers fail silently anyway.
+    try {
+      adsService.processRange(e.range);
+    } catch (err) {
+      console.error("onEdit Error in AdsDataService:", err);
+    }
+  }
+}

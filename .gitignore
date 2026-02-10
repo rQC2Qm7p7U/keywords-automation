@@ -5,3 +5,5 @@ coverage
 .clasp.json
 .vscode
 dist/
+
+DEPLOY_INSTRUCTION_RU.md
