@@ -23,21 +23,22 @@
 | **Path2** | `String` | URL Path 2 (Display URL). | **AdsDataService**. |
 
 ## Formulas & Formatting
-- **"Len" Columns**: All columns starting with "Len" (e.g., `Len 1`, `Len D1`) contain **Array Formulas** that calculate remaining characters:
-    *   **Headlines**: Limit 30 chars.
-    *   **Descriptions**: Limit 90 chars.
-    *   **Paths**: Limit 15 chars.
+- **"Len" Columns**: All columns starting with "Len" (e.g., `Len 1`, `Len D1`) contain **Array Formulas** that calculate remaining characters dynamically based on limits defined in **Settings**.
+    *   **Source of Truth:** Limits are taken from the `Settings` sheet (Max Headline Length, etc.).
+    *   **Persistence:** Formulas are automatically re-applied if the data is regenerated.
 - **Conditional Formatting**:
     *   🔴 **Red**: Negative remaining characters (Over limit).
     *   🟡 **Yellow**: 1-5 characters remaining (Near limit).
     *   🟢 **Green**: Exactly 0 characters remaining (Perfect fit).
 
 ## Automation
-- **Generation**: Triggered by user action.
-- **Case Transformation**: Keywords are converted to "Ads Case" (Title Case), respecting **Abbreviations** defined in *Intent Types*.
-- **Manual Formatting**: Use the menu **"8. Форматировать объявления"** to re-apply Ads Case formatting to the sheet.
-    
-    ### Formatting Rules (Button 8)
+- **Generation**: Triggered by user action ("Prepare Ads Data").
+- **Automatic Formatting (onEdit)**:
+    -   **Instant:** Any text typed or pasted into Headline/Description columns is **automatically auto-formatted** (CamelCase, symbol cleanup).
+    -   **Performance:** Works efficiently even with large copy-pastes (10k+ rows).
+- **Manual Formatting**: You can still use the menu **"8. Форматировать объявления"** to force re-formatting of the entire sheet.
+
+    ### Formatting Rules
     1.  **Smart Casing**:
         *   Converts text to **Title Case** (e.g., "buy iphone" -> "Buy Iphone").
         *   **Abbreviations**: Keeps known abbreviations (defined in *Intent Types*) in ALL CAPS (e.g., "USA", "SEO").

@@ -82,79 +82,7 @@ export function createStructure() {
   protectHeaderRow(adsDataSheet);
 
   // Apply Validation & Formulas for "Len" columns
-  // Limits: Headline=30, Description=90, Path=15
-  const headlineLimit = 30;
-  const descLimit = 90;
-  const pathLimit = 15;
-
-
-  const columnToLetter = (column: number) => {
-    let temp, letter = '';
-    while (column > 0) {
-      temp = (column - 1) % 26;
-      letter = String.fromCharCode(temp + 65) + letter;
-      column = (column - temp - 1) / 26;
-    }
-    return letter;
-  };
-
-  for (let i = 0; i < adsHeaders.length; i++) {
-    const colName = adsHeaders[i];
-    const colIndex = i + 1;
-    let limitRef = "";
-
-    if (colName.startsWith("Len")) {
-      // Determine limit based on context - referencing Settings Sheet
-      // Row 14: Max Headline Length ($B$14)
-      // Row 15: Max Description Length ($B$15)
-      // Row 16: Max Path Length ($B$16)
-
-      if (colName === "Len" || (colName.startsWith("Len ") && !colName.includes("D") && !colName.includes("P"))) {
-        limitRef = `'${SHEETS.SETTINGS}'!$B$14`;
-      } else if (colName.startsWith("Len D")) {
-        limitRef = `'${SHEETS.SETTINGS}'!$B$15`;
-      } else if (colName.startsWith("Len P")) {
-        limitRef = `'${SHEETS.SETTINGS}'!$B$16`;
-      }
-
-      if (limitRef) {
-        // Target Column is the one before this (colIndex - 1)
-        const targetColLetter = columnToLetter(colIndex - 1);
-        const formula = `=ARRAYFORMULA(IF(${targetColLetter}2:${targetColLetter}="", "", ${limitRef} - LEN(${targetColLetter}2:${targetColLetter})))`;
-
-        adsDataSheet.getRange(2, colIndex).setFormula(formula);
-
-        // Conditional Formatting
-        const range = adsDataSheet.getRange(2, colIndex, adsDataSheet.getMaxRows() - 1, 1);
-
-        // Red: < 0
-        const ruleRed = SpreadsheetApp.newConditionalFormatRule()
-          .whenNumberLessThan(0)
-          .setBackground("#F4CCCC") // Red-ish
-          .setRanges([range])
-          .build();
-
-        // Yellow: > 0 AND <= 5
-        const ruleYellow = SpreadsheetApp.newConditionalFormatRule()
-          .whenNumberBetween(1, 5)
-          .setBackground("#FFF2CC") // Yellow-ish
-          .setRanges([range])
-          .build();
-
-        // Green: == 0
-        const ruleGreen = SpreadsheetApp.newConditionalFormatRule()
-          .whenNumberEqualTo(0)
-          .setBackground("#D9EAD3") // Green-ish
-          .setRanges([range])
-          .build();
-
-        adsDataSheet.setConditionalFormatRules([
-          ...adsDataSheet.getConditionalFormatRules(),
-          ruleRed, ruleYellow, ruleGreen
-        ]);
-      }
-    }
-  }
+  applyAdsDataFormulas(adsDataSheet);
 
   // 8. Create "Ads Phrase" sheet
   const adsPhraseSheet = ss.insertSheet(SHEETS.ADS_PHRASE);
@@ -336,5 +264,95 @@ function protectHeaderRow(sheet: GoogleAppsScript.Spreadsheet.Sheet) {
 
   if (protection.canDomainEdit()) {
     protection.setDomainEdit(false);
+  }
+}
+
+/**
+ * Applies Validation, Formulas, and Conditional Formatting to Ads Data sheet.
+ * Can be called after clearing/recreating data to restore dynamic functionality.
+ */
+export function applyAdsDataFormulas(sheet: GoogleAppsScript.Spreadsheet.Sheet) {
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0] as string[];
+
+  const columnToLetter = (column: number) => {
+    let temp, letter = '';
+    while (column > 0) {
+      temp = (column - 1) % 26;
+      letter = String.fromCharCode(temp + 65) + letter;
+      column = (column - temp - 1) / 26;
+    }
+    return letter;
+  };
+
+  const rules: GoogleAppsScript.Spreadsheet.ConditionalFormatRule[] = [];
+
+  // Clean existing rules for Len columns? Or just append?
+  // Be careful not to duplicate rules if called multiple times.
+  // Ideally, we should clear rules for Len columns first, but GAS logic is tricky.
+  // For now, we assume this is called on a fresh or cleared sheet context or accept appending.
+  // Better: Get existing rules, keep non-Len rules, add new Len rules.
+  // But identifying "Len rule" is hard.
+  // Let's just append for now as this is usually called after clear.
+
+  for (let i = 0; i < headers.length; i++) {
+    const colName = headers[i];
+    const colIndex = i + 1;
+    let limitRef = "";
+
+    if (colName.startsWith("Len")) {
+      // Determine limit based on context - referencing Settings Sheet
+      if (colName === "Len" || (colName.startsWith("Len ") && !colName.includes("D") && !colName.includes("P"))) {
+        limitRef = `'${SHEETS.SETTINGS}'!$B$14`;
+      } else if (colName.startsWith("Len D")) {
+        limitRef = `'${SHEETS.SETTINGS}'!$B$15`;
+      } else if (colName.startsWith("Len P")) {
+        limitRef = `'${SHEETS.SETTINGS}'!$B$16`;
+      }
+
+      if (limitRef) {
+        // 1. Clear Content (ensure no static values like empty strings block ArrayFormula)
+        if (sheet.getMaxRows() > 1) {
+          sheet.getRange(2, colIndex, sheet.getMaxRows() - 1, 1).clearContent();
+        }
+
+        // 2. Set ArrayFormula
+        const targetColLetter = columnToLetter(colIndex - 1);
+        const formula = `=ARRAYFORMULA(IF(${targetColLetter}2:${targetColLetter}="", "", ${limitRef} - LEN(${targetColLetter}2:${targetColLetter})))`;
+        sheet.getRange(2, colIndex).setFormula(formula);
+
+        // 3. Conditional Formatting
+        const range = sheet.getRange(2, colIndex, sheet.getMaxRows() - 1, 1);
+
+        // Red: < 0
+        const ruleRed = SpreadsheetApp.newConditionalFormatRule()
+          .whenNumberLessThan(0)
+          .setBackground("#F4CCCC")
+          .setRanges([range])
+          .build();
+
+        // Yellow: > 0 AND <= 5
+        const ruleYellow = SpreadsheetApp.newConditionalFormatRule()
+          .whenNumberBetween(1, 5)
+          .setBackground("#FFF2CC")
+          .setRanges([range])
+          .build();
+
+        // Green: == 0
+        const ruleGreen = SpreadsheetApp.newConditionalFormatRule()
+          .whenNumberEqualTo(0)
+          .setBackground("#D9EAD3")
+          .setRanges([range])
+          .build();
+
+        rules.push(ruleRed, ruleYellow, ruleGreen);
+      }
+    }
+  }
+
+  if (rules.length > 0) {
+    sheet.setConditionalFormatRules([
+      ...sheet.getConditionalFormatRules(),
+      ...rules
+    ]);
   }
 }

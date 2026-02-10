@@ -1,6 +1,7 @@
 import { ISheetRepository } from "../repositories/SheetRepository";
 import { SHEETS, COLUMNS } from "../Config";
 import { SheetDataMapper } from "../utils/SheetDataMapper";
+import { applyAdsDataFormulas } from "../Structure";
 
 export class AdsDataService {
     private sheetRepo: ISheetRepository;
@@ -56,6 +57,13 @@ export class AdsDataService {
         this.sheetRepo.clearContent(SHEETS.ADS_DATA);
         if (processedRows.length > 0) {
             this.sheetRepo.setData(SHEETS.ADS_DATA, processedRows);
+        }
+
+        // Re-apply Formulas and Validations (Critical for Len columns)
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const adsSheet = ss.getSheetByName(SHEETS.ADS_DATA);
+        if (adsSheet) {
+            applyAdsDataFormulas(adsSheet);
         }
     }
 
