@@ -80,7 +80,8 @@
 `Function: handleFormatAdsData`
 -   **Действие:** Форматирует заголовки и описания на листе `Ads Data`.
 -   **Правила (Ads Case):**
-    -   Каждое Слово С Большой Буквы (CamelCase).
+    -   **Headlines:** Title Case (Каждое Слово С Большой).
+    -   **Descriptions:** Sentence Case (Как в предложении).
     -   Предлоги (in, on, for, etc.) остаются строчными.
     -   Аббревиатуры (из списка `Abbreviations` на листе `Intent Types`) — ЗАГЛАВНЫМИ.
     -   Удаляет запрещенные символы (`!`, `@`, `<`, `>`).

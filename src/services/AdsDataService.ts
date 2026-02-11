@@ -74,7 +74,7 @@ export class AdsDataService {
         const ss = SpreadsheetApp.getActiveSpreadsheet();
         const adsSheet = ss.getSheetByName(SHEETS.ADS_DATA);
         if (adsSheet) {
-            applyAdsDataFormulas(adsSheet);
+            applyAdsDataFormulas(adsSheet!);
         }
 
         return `Transferred ${processedRows.length} rows from Clusters to Ads Data.`;
@@ -85,17 +85,6 @@ export class AdsDataService {
      * Reads Keywords -> Processes them -> Writes to Ads Data sheet.
      */
     prepareAdsData() {
-        return this.transferClustersToAdsData(); // Reuse logic?
-        // Wait, prepareAdsData used Clean Data source.
-        // User requested NEW button 9. But maybe we should deprecate the old way?
-        // User didn't say to replace button 8 (prepare), but added button 9.
-        // Let's keep prepareAdsData as is (from Clean Data) for now, or maybe they want 9 to be the primary way?
-        // "Add button 9" implies addition.
-        // BUT logic is very similar.
-        // I will keep prepareAdsData separate but reusing generateAdsRow.
-
-        // Let's restore prepareAdsData original body but modified generateAdsRow call.
-
         // Fetch Settings
         const settingsData = this.sheetRepo.getData(SHEETS.SETTINGS);
         const getValue = (key: string, defaultVal: string) => {
@@ -147,7 +136,7 @@ export class AdsDataService {
         const ss = SpreadsheetApp.getActiveSpreadsheet();
         const adsSheet = ss.getSheetByName(SHEETS.ADS_DATA);
         if (adsSheet) {
-            applyAdsDataFormulas(adsSheet);
+            applyAdsDataFormulas(adsSheet!);
         }
     }
 
@@ -195,10 +184,10 @@ export class AdsDataService {
     }
 
     /**
-     * Converts text to Title Case / Ads Case and applies Google Ads cleaning rules.
+     * Converts text to Title Case (Headlines) or Sentence Case (Descriptions) and applies Google Ads cleaning rules.
      * @param text Text to transform
      * @param abbreviations Set of abbreviations to keep
-     * @param isHeadline If true, applies strict Headline rules (no "!", etc.)
+     * @param isHeadline If true, applies strict Headline rules (no "!", Title Case). If false (Description), applies Sentence Case.
      */
     private toAdsHeadline(text: string, abbreviations: Set<string>, isHeadline: boolean = true): string {
         let cleaned = text;
@@ -213,12 +202,12 @@ export class AdsDataService {
             cleaned = cleaned.replace(/!/g, "");
         }
 
-        // 3. Fix Punctuation Spacing: Comma/Exclam/Question/Colon/Semi-colon followed by non-space
+        // 3. Remove Duplicate Punctuation (e.g. ",,")
+        cleaned = cleaned.replace(/([,?!:;])\1+/g, '$1');
+
+        // 4. Fix Punctuation Spacing: Comma/Exclam/Question/Colon/Semi-colon followed by non-space
         // Safe set: , ! ? : ;
         cleaned = cleaned.replace(/([,?!:;])(?=[^\s])/g, '$1 ');
-
-        // 4. Remove Duplicate Punctuation (e.g. ",,")
-        cleaned = cleaned.replace(/([,?!:;])\1+/g, '$1');
 
         // 5. Spacing (Collapse multiple spaces and trim)
         cleaned = cleaned.replace(/\s+/g, " ").trim();
@@ -227,7 +216,7 @@ export class AdsDataService {
 
         const words = cleaned.split(/\s+/);
 
-        // Common prepositions to keep lowercase (unless first word)
+        // Common prepositions to keep lowercase (only for Title Case / Headlines)
         const IGNORED_WORDS = new Set([
             "in", "on", "at", "to", "for", "of", "with", "by", "from", "and", "or", "a", "an", "the"
         ]);
@@ -236,24 +225,48 @@ export class AdsDataService {
             const upperWord = word.toUpperCase();
             const lowerWord = word.toLowerCase();
 
-            // 1. Check Abbreviation
+            // 1. Check Abbreviation (Applies to both Headlines and Descriptions)
             if (abbreviations.has(upperWord)) {
                 return upperWord;
             }
 
-            // 2. Keep Existing ALL CAPS (if > 1 char) 
-            if (word === upperWord && word.length > 1) {
+            // 2. Keep Existing ALL CAPS (if > 1 char) - Only for Headlines (Titles)
+            // For Descriptions, we want to normalize to Sentence Case (unless it's a known abbreviation)
+            if (isHeadline && word === upperWord && word.length > 1) {
                 return upperWord;
             }
 
-            // 3. Smart Lowercase for Prepositions
-            // If it's NOT the first word AND it's in the ignored list OR length < 2 (legacy check)
-            if (index !== 0 && (IGNORED_WORDS.has(lowerWord) || word.length < 2)) {
-                return lowerWord;
-            }
+            if (isHeadline) {
+                // --- Headline Rules (Title Case) ---
 
-            // 4. Standard Title Case (First Upper, rest lower)
-            return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+                // 3. Smart Lowercase for Prepositions
+                // If it's NOT the first word AND it's in the ignored list OR length < 2 (legacy check)
+                if (index !== 0 && (IGNORED_WORDS.has(lowerWord) || word.length < 2)) {
+                    return lowerWord;
+                }
+
+                // 4. Standard Title Case (First Upper, rest lower)
+                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+
+            } else {
+                // --- Description Rules (Sentence Case) ---
+
+                // 3. First word -> Capitalize
+                if (index === 0) {
+                    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+                }
+
+                // 4. Other words -> Lowercase (standardize)
+                // Note: This might lower Proper Nouns if they are not in abbreviations or all-caps.
+                // But "Sentence case" generally implies lowercase common words.
+                // If user entered "Cheap Hotels in Paris", "Paris" (not all caps) -> "paris".
+                // This is a risk. 
+                // However, user specifically complained about Camel Case.
+                // Ideally we preserve original case for non-first words if possible?
+                // But if input is "BEST CHEAP HOTELS", we want "Best cheap hotels".
+                // So lowercasing is safer for "normalization".
+                return word.toLowerCase();
+            }
         }).join(" ");
     }
 

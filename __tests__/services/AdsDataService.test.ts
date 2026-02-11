@@ -1,6 +1,11 @@
 import { AdsDataService } from "../../src/services/AdsDataService";
 import { ISheetRepository } from "../../src/repositories/SheetRepository";
 
+// Mock Structure
+jest.mock("../../src/Structure", () => ({
+    applyAdsDataFormulas: jest.fn()
+}));
+
 // Define Mock Interfaces to help Typescript
 interface MockSheetRepo extends ISheetRepository {
     getData: jest.Mock;
@@ -23,6 +28,14 @@ describe("AdsDataService", () => {
     let mockSheetRepo: MockSheetRepo;
     let mockMapperClean: MockMapper;
     let mockMapperAds: MockMapper;
+
+    beforeAll(() => {
+        (global as any).SpreadsheetApp = {
+            getActiveSpreadsheet: jest.fn().mockReturnValue({
+                getSheetByName: jest.fn().mockReturnValue({}),
+            }),
+        };
+    });
 
     beforeEach(() => {
         jest.clearAllMocks();
@@ -54,6 +67,7 @@ describe("AdsDataService", () => {
             getBackgrounds: jest.fn(),
             setBackgrounds: jest.fn(),
             setCellValue: jest.fn(),
+            clearColumnValues: jest.fn(),
         };
 
         // Setup Default Mock Returns
@@ -178,7 +192,7 @@ describe("AdsDataService", () => {
         expect(mockSheetRepo.setColumnValues).toHaveBeenCalledWith(
             "Ads Data",
             "Description 1",
-            ["Ugly Description"]
+            ["Ugly description"]
         );
     });
 
@@ -227,7 +241,7 @@ describe("AdsDataService", () => {
         expect(mockSheetRepo.setColumnValues).toHaveBeenCalledWith(
             "Ads Data",
             "Description 1",
-            ["Desc Space"]
+            ["Desc space"]
         );
     });
 
