@@ -50,9 +50,27 @@ describe("CleanupService", () => {
             ];
             mockSheetRepo.getData.mockReturnValue(rawData);
 
-            const removed = service.removeDuplicates("RAW_DATA");
+            const result = service.removeDuplicates("RAW_DATA");
 
-            expect(removed).toBe(1);
+            expect(result).toEqual({ removed: 1, remaining: 2 });
+            expect(mockSheetRepo.setData).toHaveBeenCalledWith("RAW_DATA", [
+                ["keyword1", 10],
+                ["keyword2", 20]
+            ]);
+        });
+
+        test("should remove empty keyword rows", () => {
+            const rawData = [
+                ["keyword1", 10],
+                ["", ""],          // Empty
+                ["keyword2", 20],
+                ["  ", ""],        // Whitespace-only
+            ];
+            mockSheetRepo.getData.mockReturnValue(rawData);
+
+            const result = service.removeDuplicates("RAW_DATA");
+
+            expect(result).toEqual({ removed: 2, remaining: 2 });
             expect(mockSheetRepo.setData).toHaveBeenCalledWith("RAW_DATA", [
                 ["keyword1", 10],
                 ["keyword2", 20]
@@ -196,9 +214,9 @@ describe("CleanupService", () => {
             // getBackgrounds Mock
             mockSheetRepo.getBackgrounds.mockReturnValue([["#ffffff"], ["#ffffff"]]);
 
-            const count = service.collectNegativeKeywords();
+            const stats = service.collectNegativeKeywords();
 
-            expect(count).toBe(3); // neg1, neg2, neg3
+            expect(stats.total).toBe(3); // neg1, neg2, neg3
             expect(mockSheetRepo.setColumnValues).toHaveBeenCalledWith(
                 "INTENT_TYPES",
                 "Negative",
@@ -226,9 +244,9 @@ describe("CleanupService", () => {
                 return ["Keyword", "Negative"]; // Default
             });
 
-            const count = service.collectNegativeKeywords();
+            const stats = service.collectNegativeKeywords();
 
-            expect(count).toBe(4); // neg1, neg2, neg3, neg4
+            expect(stats.total).toBe(4); // neg1, neg2, neg3, neg4
             expect(mockSheetRepo.setColumnValues).toHaveBeenCalledWith(
                 "INTENT_TYPES",
                 "Negative",

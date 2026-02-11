@@ -32,6 +32,16 @@ export class AdsDataService {
         const campaignName = getValue("Campaign Name", "Keywords Automation");
         const targetUrl = getValue("Target URL", "");
 
+        // Fetch UTM Settings
+        const utmSettings = {
+            source: getValue("UTM Source", "google"),
+            medium: getValue("UTM Medium", "cpc"),
+            campaign: getValue("UTM Campaign", "{campaignid}"),
+            content: getValue("UTM Content", "{creative}"),
+            term: getValue("UTM Term", "{keyword}"),
+            device: getValue("Device", "{device}")
+        };
+
         // Initialize Mappers
         const clustersMapper: SheetDataMapper = this.sheetRepo.getMapper(SHEETS.CLUSTERS);
         const adsMapper: SheetDataMapper = this.sheetRepo.getMapper(SHEETS.ADS_DATA);
@@ -60,7 +70,7 @@ export class AdsDataService {
             // Use Group Name from Clusters as Ad Group, or fallback to auto-generated if empty (unlikely)
             const adGroup = groupName || this.toTitleCase(keyword, abbreviations);
 
-            const adsObj = this.generateAdsRow(keyword, abbreviations, campaignName, targetUrl, adGroup);
+            const adsObj = this.generateAdsRow(keyword, abbreviations, campaignName, targetUrl, adGroup, utmSettings);
             return adsMapper.toArray(adsObj);
         }).filter(r => r !== null);
 
@@ -95,9 +105,18 @@ export class AdsDataService {
         const campaignName = getValue("Campaign Name", "Keywords Automation");
         const targetUrl = getValue("Target URL", "");
 
-        // Initialize Mappers
         const cleanMapper: SheetDataMapper = this.sheetRepo.getMapper(SHEETS.CLEAN_DATA);
         const adsMapper: SheetDataMapper = this.sheetRepo.getMapper(SHEETS.ADS_DATA);
+
+        // Fetch UTM Settings
+        const utmSettings = {
+            source: getValue("UTM Source", "google"),
+            medium: getValue("UTM Medium", "cpc"),
+            campaign: getValue("UTM Campaign", "{campaignid}"),
+            content: getValue("UTM Content", "{creative}"),
+            term: getValue("UTM Term", "{keyword}"),
+            device: getValue("Device", "{device}")
+        };
 
         // Fetch Keywords from Clean Data
         const cleanData = this.sheetRepo.getData(SHEETS.CLEAN_DATA);
@@ -122,7 +141,7 @@ export class AdsDataService {
             // Generate Ad Group from Keyword (Legacy behavior)
             const adGroup = this.toTitleCase(keyword, abbreviations);
 
-            const adsObj = this.generateAdsRow(keyword, abbreviations, campaignName, targetUrl, adGroup);
+            const adsObj = this.generateAdsRow(keyword, abbreviations, campaignName, targetUrl, adGroup, utmSettings);
             return adsMapper.toArray(adsObj);
         }).filter(r => r !== null);
 
@@ -143,7 +162,14 @@ export class AdsDataService {
     /**
      * Generates a single row object for Ads Data sheet.
      */
-    private generateAdsRow(keyword: string, abbreviations: Set<string>, campaignName: string, targetUrl: string, adGroupInput: string): Record<string, any> {
+    private generateAdsRow(
+        keyword: string,
+        abbreviations: Set<string>,
+        campaignName: string,
+        targetUrl: string,
+        adGroupInput: string,
+        utmSettings: Record<string, string>
+    ): Record<string, any> {
         // 1. Campaign Name
         const campaign = campaignName;
 
@@ -162,7 +188,13 @@ export class AdsDataService {
         rowObj["Ad Group"] = adGroup;
         rowObj["Keyword"] = originalKeyword;
         rowObj["Keyword for Headline 1"] = keywordForHeadline;
-        rowObj["Final URL"] = targetUrl;
+        const finalUrl = this.constructFinalUrl(targetUrl, utmSettings);
+
+        rowObj["Campaign"] = campaign;
+        rowObj["Ad Group"] = adGroup;
+        rowObj["Keyword"] = originalKeyword;
+        rowObj["Keyword for Headline 1"] = keywordForHeadline;
+        rowObj["Final URL"] = finalUrl;
 
         // 5. Headlines 1-15 (Ads Case)
         // Headline 1 is special? Currently it just uses the transformed keyword.
@@ -303,6 +335,62 @@ export class AdsDataService {
     }
 
     /**
+     * Constructs the Final URL with UTM parameters.
+     */
+    private constructFinalUrl(baseUrl: string, settings: Record<string, string>): string {
+        let url = baseUrl.trim();
+        if (!url) return "";
+
+        // 1. Clean Base URL
+        // Remove duplicate protocols (simple check)
+        url = url.replace(/^(https?:\/\/)(https?:\/\/)+/i, '$1');
+        // Remove hash
+        url = url.split('#')[0];
+
+        // 2. Prepare UTM Params
+        const params: string[] = [];
+
+        const addParam = (key: string, val: string) => {
+            if (!val) return;
+            // Clean value: remove #, =, & (user request)
+            let cleanVal = val.replace(/[#=&]/g, "");
+            // Lowercase (user request: "Перевод в нижний регистр") -> Applied to VALUES or whole URL?
+            // "Перевод в нижний регистр" usually applies to the parameter values to avoid case fragmentation in analytics.
+            cleanVal = cleanVal.toLowerCase();
+            params.push(`${key}=${cleanVal}`);
+        };
+
+        // Resolve placeholders (if any specific logic needed, otherwise just pass through)
+        // User requested removing transliteration for {keyword}, so we just pass the value as is.
+        // Google Ads will replace {keyword} dynamically.
+        const resolvePlaceholder = (val: string | undefined) => {
+            return val || "";
+        };
+
+        addParam("utm_source", resolvePlaceholder(settings.source));
+        addParam("utm_medium", resolvePlaceholder(settings.medium));
+        addParam("utm_campaign", resolvePlaceholder(settings.campaign));
+        addParam("utm_content", resolvePlaceholder(settings.content));
+        addParam("utm_term", resolvePlaceholder(settings.term));
+        addParam("device", resolvePlaceholder(settings.device));
+
+        // 3. Append to URL
+        if (params.length > 0) {
+            const separator = url.includes("?") ? "&" : "?";
+            // Ensure no double ?? or && (simple check)
+            if (url.endsWith("?") || url.endsWith("&")) {
+                url += params.join("&");
+            } else {
+                url += separator + params.join("&");
+            }
+        }
+
+        return url;
+    }
+
+
+
+    /**
      * Formats existing Ads Data sheet (Headlines/Descriptions) to Ads Case.
      * Useful for manual edits.
      * Optimization: Writes ONLY changed columns to preserve formulas in other columns.
@@ -325,12 +413,36 @@ export class AdsDataService {
             if (h === "Keyword for Headline 1") {
                 keywordForHeadline1Index = i;
             }
+            if (h === "Final URL") {
+                targetIndices.push(i);
+            }
             if (h.startsWith("Headline ") || h.startsWith("Description ")) {
                 targetIndices.push(i);
             }
         });
 
-        if (targetIndices.length === 0) return "No Headline/Description columns found.";
+        // We also need "Keyword" column to generate UTM
+        const keywordIndex = headers.indexOf("Keyword");
+        if (keywordIndex === -1) return "Keyword column not found.";
+
+        if (targetIndices.length === 0) return "No target columns found.";
+
+        // 2. Fetch Settings for UTM
+        const settingsData = this.sheetRepo.getData(SHEETS.SETTINGS);
+        const getValue = (key: string, defaultVal: string) => {
+            const row = settingsData.find(r => r[0] === key);
+            return row ? String(row[1]) : defaultVal;
+        };
+
+        const targetUrl = getValue("Target URL", "");
+        const utmSettings = {
+            source: getValue("UTM Source", "google"),
+            medium: getValue("UTM Medium", "cpc"),
+            campaign: getValue("UTM Campaign", "{campaignid}"),
+            content: getValue("UTM Content", "{creative}"),
+            term: getValue("UTM Term", "{keyword}"),
+            device: getValue("Device", "{device}")
+        };
 
         // 2. Load Abbreviations
         const abbrevValues = this.sheetRepo.getColumnValues(SHEETS.INTENT_TYPES, "Abbreviations");
@@ -348,9 +460,11 @@ export class AdsDataService {
             let columnChanged = false;
             const colName = headers[colIdx];
             const isHeadline = colName.startsWith("Headline");
+            const isFinalUrl = colName === "Final URL";
 
             data.forEach(row => {
                 let rawVal = "";
+                const keyword = (keywordIndex < row.length) ? String(row[keywordIndex]) : "";
 
                 // SPECIAL LOGIC: Headline 1 comes from "Keyword for Headline 1"
                 if (colName === "Headline 1" && keywordForHeadline1Index !== -1 && keywordForHeadline1Index < row.length) {
@@ -358,6 +472,26 @@ export class AdsDataService {
                 } else if (colIdx < row.length) {
                     // Otherwise read from itself
                     rawVal = String(row[colIdx]);
+                }
+
+                if (isFinalUrl) {
+                    // Generate URL
+                    // Only generate if we have a keyword (required for utm_term usually)
+                    if (!keyword) {
+                        newColumnValues.push("");
+                        return;
+                    }
+                    const newUrl = this.constructFinalUrl(targetUrl, utmSettings);
+
+                    // Compare?
+                    if (newUrl !== rawVal) {
+                        columnChanged = true;
+                        cellsUpdatedCount++;
+                        newColumnValues.push(newUrl);
+                    } else {
+                        newColumnValues.push(rawVal);
+                    }
+                    return;
                 }
 
                 if (!rawVal) {

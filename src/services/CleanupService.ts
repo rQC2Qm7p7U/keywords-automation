@@ -163,15 +163,14 @@ export class CleanupService {
         return cleanData.length;
     }
 
-    removeDuplicates(sheetName: string): number {
+    removeDuplicates(sheetName: string): { removed: number; remaining: number } {
         const data = this.sheetRepo.getData(sheetName);
-        if (!data || data.length === 0) return 0;
+        if (!data || data.length === 0) return { removed: 0, remaining: 0 };
 
         const headers = this.sheetRepo.getHeaders(sheetName);
         const keywordIdx = headers.indexOf("Keyword");
 
         if (keywordIdx === -1) {
-            // Fallback or Error? If we want to be strict:
             throw new Error(`Column 'Keyword' not found in ${sheetName} for duplicate removal.`);
         }
 
@@ -180,11 +179,16 @@ export class CleanupService {
         let removedCount = 0;
 
         data.forEach(row => {
-            // Use dynamic index
             const val = row[keywordIdx];
             const keyword = String(val === undefined || val === null ? "" : val).trim().toLowerCase();
 
-            if (keyword && seen.has(keyword)) {
+            // Skip empty rows — they are not useful data
+            if (!keyword) {
+                removedCount++;
+                return;
+            }
+
+            if (seen.has(keyword)) {
                 removedCount++;
             } else {
                 seen.add(keyword);
@@ -195,10 +199,14 @@ export class CleanupService {
         if (removedCount > 0) {
             this.sheetRepo.setData(sheetName, uniqueData);
         }
-        return removedCount;
+        return { removed: removedCount, remaining: uniqueData.length };
     }
 
-    collectNegativeKeywords(): number {
+    /**
+     * Aggregates unique negative keywords from all source sheets.
+     * Returns stats with per-source breakdown.
+     */
+    collectNegativeKeywords(): { total: number; fromRaw: number; fromClean: number; fromClusters: number; existing: number } {
         const rawSheet = this.configRepo.getSheetName("RAW_DATA");
         const cleanSheet = this.configRepo.getSheetName("CLEAN_DATA");
         const clusterSheet = this.configRepo.getSheetName("CLUSTERS");
@@ -210,26 +218,37 @@ export class CleanupService {
         const clusterNegs = this.sheetRepo.getColumnValues(clusterSheet, "Negative");
         const existingNegs = this.sheetRepo.getColumnValues(intentSheet, "Negative");
 
-        const allNegatives = new Set<string>();
-
-        const addIfValid = (val: any) => {
-            if (val) {
+        // Parse each source into its own Set for per-source counting
+        const parseValues = (values: any[]): Set<string> => {
+            const result = new Set<string>();
+            values.forEach(val => {
+                if (!val) return;
                 const str = String(val).trim().toLowerCase();
-                if (str) {
-                    // Split by comma or semicolon
-                    const parts = str.split(/[;,]/);
-                    parts.forEach(part => {
-                        const cleanPart = part.trim();
-                        if (cleanPart) allNegatives.add(cleanPart);
-                    });
-                }
-            }
+                if (!str) return;
+                str.split(/[;,]/).forEach(part => {
+                    const cleanPart = part.trim();
+                    if (cleanPart) result.add(cleanPart);
+                });
+            });
+            return result;
         };
 
-        rawNegs.forEach(addIfValid);
-        cleanNegs.forEach(addIfValid);
-        clusterNegs.forEach(addIfValid);
-        existingNegs.forEach(addIfValid);
+        const existingSet = parseValues(existingNegs);
+        const rawSet = parseValues(rawNegs);
+        const cleanSet = parseValues(cleanNegs);
+        const clusterSet = parseValues(clusterNegs);
+
+        // Merge all into one set
+        const allNegatives = new Set<string>(existingSet);
+        rawSet.forEach(w => allNegatives.add(w));
+        cleanSet.forEach(w => allNegatives.add(w));
+        clusterSet.forEach(w => allNegatives.add(w));
+
+        // Count new negatives per source (words not in existingSet)
+        let fromRaw = 0, fromClean = 0, fromClusters = 0;
+        rawSet.forEach(w => { if (!existingSet.has(w)) fromRaw++; });
+        cleanSet.forEach(w => { if (!existingSet.has(w) && !rawSet.has(w)) fromClean++; });
+        clusterSet.forEach(w => { if (!existingSet.has(w) && !rawSet.has(w) && !cleanSet.has(w)) fromClusters++; });
 
         const sortedNegatives = Array.from(allNegatives).sort();
 
@@ -237,13 +256,26 @@ export class CleanupService {
         this.sheetRepo.clearColumnValues(intentSheet, "Negative");
         this.sheetRepo.setColumnValues(intentSheet, "Negative", sortedNegatives);
 
+        // Reset old highlights before applying new ones.
+        // Without this, stale green/yellow backgrounds persist after removing a negative.
+        this.sheetRepo.clearColumnBackgrounds(rawSheet, "Negative");
+        this.sheetRepo.clearColumnBackgrounds(cleanSheet, "Negative");
+        this.sheetRepo.clearColumnBackgrounds(clusterSheet, "Negative");
+        this.clearIntentTypesConflictBackgrounds(intentSheet);
+
         this.highlightNegativesInSheet(rawSheet, allNegatives);
         this.highlightNegativesInSheet(cleanSheet, allNegatives);
         this.highlightNegativesInSheet(clusterSheet, allNegatives);
 
         this.highlightConflictsInIntentTypes(sortedNegatives);
 
-        return sortedNegatives.length;
+        return {
+            total: sortedNegatives.length,
+            fromRaw,
+            fromClean,
+            fromClusters,
+            existing: existingSet.size
+        };
     }
 
     cleanKeysFromNegatives(): { cleanRemoved: number, clustersRemoved: number } {
@@ -395,6 +427,18 @@ export class CleanupService {
         if (changed) {
             this.sheetRepo.setBackgrounds(sheetName, "Negative", backgrounds);
         }
+    }
+
+    /**
+     * Resets backgrounds on all non-Negative columns of Intent Types.
+     * This clears stale yellow conflict highlights before re-applying.
+     */
+    private clearIntentTypesConflictBackgrounds(intentSheet: string): void {
+        const headers = this.sheetRepo.getHeaders(intentSheet);
+        headers.forEach(header => {
+            if (header === "Negative") return; // Negative column is cleared separately
+            this.sheetRepo.clearColumnBackgrounds(intentSheet, header);
+        });
     }
 
     private highlightConflictsInIntentTypes(negatives: string[]): void {

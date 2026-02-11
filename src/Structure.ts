@@ -173,6 +173,15 @@ export function createStructure() {
     ["Max Description Length", "90", "Максимальная длина описания (обычно 90)"],
     ["Max Path Length", "15", "Максимальная длина пути (обычно 15)"],
 
+    // --- UTM SETTINGS ---
+    ["UTM SETTINGS", "", ""],
+    ["UTM Source", "google", "Источник кампании (utm_source)"],
+    ["UTM Medium", "cpc", "Тип трафика (utm_medium)"],
+    ["UTM Campaign", "{campaignid}", "Название кампании (utm_campaign)"],
+    ["UTM Content", "{creative}", "Содержание объявления (utm_content)"],
+    ["UTM Term", "{keyword}", "Ключевое слово (utm_term)"],
+    ["Device", "{device}", "Тип устройства (device)"],
+
     // --- SYSTEM ---
     ["SYSTEM", "", ""],
     ["API Token Status", "Not Set", "Статус токена (меняется через меню)"]
@@ -182,7 +191,7 @@ export function createStructure() {
   settingsSheet.getRange(startRow, 1, settingsRows.length, 3).setValues(settingsRows);
 
   // Values Formatting
-  const headerRows = [2, 6, 11, 17];
+  const headerRows = [2, 6, 11, 17, 24];
   headerRows.forEach(r => {
     settingsSheet.getRange(r, 1, 1, 3).setBackground("#d9d9d9").setFontWeight("bold");
   });
@@ -218,6 +227,37 @@ export function createStructure() {
   // 6. Ignore Main (Row 10 -> B10)
   const boolRule = SpreadsheetApp.newDataValidation().requireCheckbox().build();
   settingsSheet.getRange("B10").setDataValidation(boolRule);
+
+  // 7. UTM Medium (Row 20 -> B20, check row calculation: 2 + 18 = 20?)
+  // Let's count:
+  // 1: Headers
+  // 2: GENERAL
+  // 3: Search Engine
+  // 4: Region Search
+  // 5: Region
+  // 6: CLUSTERING
+  // 7: Group Type
+  // 8: Group Count
+  // 9: Depth
+  // 10: Ignore Main
+  // 11: ADS DATA
+  // 12: Campaign Name
+  // 13: Target URL
+  // 14: Max Headline
+  // 15: Max Descr
+  // 16: Max Path
+  // 17: UTM SETTINGS
+  // 18: UTM Source
+  // 19: UTM Medium <--- (Row 19, B19)
+  // 20: UTM Campaign
+  // 21: UTM Content
+  // 22: UTM Term
+  // 23: Device
+  // 24: SYSTEM
+  // 25: API Token
+
+  const utmMediumRule = SpreadsheetApp.newDataValidation().requireValueInList(["cpc", "organic", "email", "social", "banner", "cpa"]).build();
+  settingsSheet.getRange("B19").setDataValidation(utmMediumRule);
 
   // Auto-resize
   settingsSheet.autoResizeColumns(1, 3);

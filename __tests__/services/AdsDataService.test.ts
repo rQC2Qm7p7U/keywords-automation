@@ -113,7 +113,7 @@ describe("AdsDataService", () => {
             "Keyword": "buy iphone 15 pro",
             "Keyword for Headline 1": "buy iphone 15 pro",
             "Headline 1": "Buy IPHONE 15 PRO",
-            "Final URL": "https://example.com"
+            "Final URL": "https://example.com?utm_source=google&utm_medium=cpc&utm_campaign={campaignid}&utm_content={creative}&utm_term={keyword}&device={device}"
         };
 
         expect(mockMapperAds.toArray).toHaveBeenCalledWith(expect.objectContaining(expectedObj));
@@ -198,10 +198,10 @@ describe("AdsDataService", () => {
 
     test("formatAdsData respects abbreviations and ignored words", () => {
         mockSheetRepo.getData.mockReturnValue([
-            ["...", "...", "...", "...", "...", "visit usa in summer", "...", "..."]
+            ["key", "...", "...", "...", "...", "...", "visit usa in summer", "...", "..."]
         ]);
         mockSheetRepo.getHeaders.mockReturnValue([
-            "A", "B", "C", "D", "E", "Headline 1", "F", "G"
+            "Keyword", "A", "B", "C", "D", "E", "Headline 1", "F", "G"
         ]);
         mockSheetRepo.getColumnValues.mockReturnValue(["USA"]);
 
@@ -218,10 +218,10 @@ describe("AdsDataService", () => {
         // Direct method testing (private) or via public method
         // Using formatAdsData with mock data
         mockSheetRepo.getData.mockReturnValue([
-            ["...", "...", "...", "...", "...", "Buy Now!!!", "...", "Desc  Space"]
+            ["key", "...", "...", "...", "...", "...", "Buy Now!!!", "...", "Desc  Space"]
         ]);
         mockSheetRepo.getHeaders.mockReturnValue([
-            "A", "B", "C", "D", "E", "Headline 1", "F", "Description 1"
+            "Keyword", "A", "B", "C", "D", "E", "Headline 1", "F", "Description 1"
         ]);
         mockSheetRepo.getColumnValues.mockReturnValue([]);
 
@@ -241,16 +241,16 @@ describe("AdsDataService", () => {
         expect(mockSheetRepo.setColumnValues).toHaveBeenCalledWith(
             "Ads Data",
             "Description 1",
-            ["Desc space"]
+            ["Desc Space"]
         );
     });
 
     test("toAdsHeadline fixes spacing and punctuation", () => {
         mockSheetRepo.getData.mockReturnValue([
-            ["...", "...", "...", "...", "...", "word,word  space", "...", "..."]
+            ["key", "...", "...", "...", "...", "...", "word,word  space", "...", "..."]
         ]);
         mockSheetRepo.getHeaders.mockReturnValue([
-            "A", "B", "C", "D", "E", "Headline 1", "F", "G"
+            "Keyword", "A", "B", "C", "D", "E", "Headline 1", "F", "G"
         ]);
         mockSheetRepo.getColumnValues.mockReturnValue([]);
 

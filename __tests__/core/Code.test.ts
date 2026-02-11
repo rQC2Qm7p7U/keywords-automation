@@ -56,6 +56,13 @@ describe("Code.ts Entry Points", () => {
             getActiveSpreadsheet: jest.fn(() => mockSpreadsheet),
         } as any;
 
+        global.LockService = {
+            getDocumentLock: jest.fn(() => ({
+                tryLock: jest.fn(() => true),
+                releaseLock: jest.fn(),
+            })),
+        } as any;
+
         global.Utilities = {
             parseCsv: jest.fn(),
         } as any;
@@ -80,7 +87,7 @@ describe("Code.ts Entry Points", () => {
     });
 
     test("handleRemoveDuplicates calls service", () => {
-        mockCleanupInstance.removeDuplicates.mockReturnValue(5);
+        mockCleanupInstance.removeDuplicates.mockReturnValue({ removed: 5, remaining: 10 });
 
         Code.handleRemoveDuplicates();
         expect(mockCleanupInstance.removeDuplicates).toHaveBeenCalledTimes(2); // Raw and Clean

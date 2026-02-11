@@ -42,7 +42,7 @@ describe("UI", () => {
     test("createProjectMenu creates menu with items", () => {
         createProjectMenu();
         expect(mockUi.createMenu).toHaveBeenCalled();
-        expect(mockMenu.addItem).toHaveBeenCalledTimes(9); // 9 items in Config
+        expect(mockMenu.addItem).toHaveBeenCalledTimes(11); // 11 items in Config
         expect(mockMenu.addToUi).toHaveBeenCalled();
     });
 

@@ -11,6 +11,23 @@ import { createStructure } from "./Structure";
 import { CONFIG, SHEETS } from "./Config";
 import { MESSAGES } from "./Messages";
 
+// --- Lock Helper ---
+// Wraps a callback in a DocumentLock to prevent concurrent writes.
+// Timeout: 15s — enough for batch operations, prevents indefinite waits.
+const LOCK_TIMEOUT_MS = 15000;
+
+function withLock<T>(fn: () => T): T {
+  const lock = LockService.getDocumentLock();
+  if (!lock.tryLock(LOCK_TIMEOUT_MS)) {
+    throw new Error("Операция заблокирована: другой пользователь сейчас работает с таблицей. Попробуйте через несколько секунд.");
+  }
+  try {
+    return fn();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 // --- Composition Root ---
 const sheetRepo = new SheetRepository();
 const arsenkinRepo = new ArsenkinRepository();
@@ -37,7 +54,7 @@ function handleCreateStructure() {
   );
 
   if (response == ui.Button.YES) {
-    createStructure();
+    withLock(() => createStructure());
   }
 }
 
@@ -72,19 +89,23 @@ function handlePrepareAdsData() {
  * 8. Format Ads Data (CamelCase + Abbreviations)
  */
 function handleFormatAdsData() {
-  const adsService = new AdsDataService(sheetRepo);
-  const msg = adsService.formatAdsData();
-  SpreadsheetApp.getActiveSpreadsheet().toast(msg);
+  withLock(() => {
+    const adsService = new AdsDataService(sheetRepo);
+    const msg = adsService.formatAdsData();
+    SpreadsheetApp.getActiveSpreadsheet().toast(msg);
+  });
 }
 
 /**
  * 9. Transfer Clusters -> Ads Data
  */
 function handleTransferClustersToAdsData() {
-  const adsService = new AdsDataService(sheetRepo);
   try {
-    const msg = adsService.transferClustersToAdsData();
-    SpreadsheetApp.getActiveSpreadsheet().toast(msg);
+    withLock(() => {
+      const adsService = new AdsDataService(sheetRepo);
+      const msg = adsService.transferClustersToAdsData();
+      SpreadsheetApp.getActiveSpreadsheet().toast(msg);
+    });
   } catch (e: any) {
     SpreadsheetApp.getUi().alert("Error", e.message, SpreadsheetApp.getUi().ButtonSet.OK);
   }
@@ -93,31 +114,61 @@ function handleTransferClustersToAdsData() {
 
 // 2. Remove Duplicates
 function handleRemoveDuplicates() {
-  const removedRaw = cleanupService.removeDuplicates(SHEETS.RAW_DATA);
-  const removedClean = cleanupService.removeDuplicates(SHEETS.CLEAN_DATA);
+  withLock(() => {
+    const raw = cleanupService.removeDuplicates(SHEETS.RAW_DATA);
+    const clean = cleanupService.removeDuplicates(SHEETS.CLEAN_DATA);
 
-  const msg = MESSAGES.SUCCESS.DUPLICATES_REMOVED
-    .replace("{0}", String(removedRaw))
-    .replace("{1}", String(removedClean));
-  SpreadsheetApp.getActiveSpreadsheet().toast(msg);
+    let msg: string;
+    if (raw.removed === 0 && clean.removed === 0) {
+      msg = MESSAGES.SUCCESS.NO_DUPLICATES
+        .replace("{0}", String(raw.remaining))
+        .replace("{1}", String(clean.remaining));
+    } else {
+      msg = MESSAGES.SUCCESS.DUPLICATES_REMOVED
+        .replace("{0}", String(raw.removed))
+        .replace("{1}", String(clean.removed))
+        .replace("{2}", String(raw.remaining))
+        .replace("{3}", String(clean.remaining));
+    }
+    SpreadsheetApp.getActiveSpreadsheet().toast(msg);
+  });
 }
 
 // 3. Collect Negatives
 function handleCollectNegatives() {
-  const count = cleanupService.collectNegativeKeywords();
-  SpreadsheetApp.getActiveSpreadsheet().toast(`Completed. Unique negatives: ${count}`);
+  withLock(() => {
+    const stats = cleanupService.collectNegativeKeywords();
+    const newCount = stats.fromRaw + stats.fromClean + stats.fromClusters;
+    const parts = [
+      `Минус-слова собраны: ${stats.total} уникальных`,
+    ];
+    if (newCount > 0) {
+      parts.push(`Новых: ${newCount} (Raw: ${stats.fromRaw}, Clean: ${stats.fromClean}, Clusters: ${stats.fromClusters})`);
+    }
+    if (stats.existing > 0) {
+      parts.push(`Уже были в Intent Types: ${stats.existing}`);
+    }
+    if (newCount === 0) {
+      parts.push("Новых минус-слов не найдено.");
+    }
+    SpreadsheetApp.getActiveSpreadsheet().toast(parts.join("\n"));
+  });
 }
 
 // 4. Transfer Raw -> Clean
 function handleTransferRawToClean() {
-  const count = cleanupService.transferRawToClean();
-  SpreadsheetApp.getActiveSpreadsheet().toast(`Transferred ${count} rows.`);
+  withLock(() => {
+    const count = cleanupService.transferRawToClean();
+    SpreadsheetApp.getActiveSpreadsheet().toast(`Transferred ${count} rows.`);
+  });
 }
 
 // 5. Clean Keys
 function handleCleanKeysFromNegatives() {
-  const { cleanRemoved, clustersRemoved } = cleanupService.cleanKeysFromNegatives();
-  SpreadsheetApp.getActiveSpreadsheet().toast(`Removed negatives: ${cleanRemoved} from Clean, ${clustersRemoved} from Clusters.`);
+  withLock(() => {
+    const { cleanRemoved, clustersRemoved } = cleanupService.cleanKeysFromNegatives();
+    SpreadsheetApp.getActiveSpreadsheet().toast(`Removed negatives: ${cleanRemoved} from Clean, ${clustersRemoved} from Clusters.`);
+  });
 }
 
 // 6. Run Clustering
@@ -127,8 +178,10 @@ function handleRunClustering() {
 
   if (response == ui.Button.YES) {
     try {
-      const result = clusterService.runClustering();
-      ui.alert('Task Started', `ID: ${result.taskId}\nMsg: ${result.message}`, ui.ButtonSet.OK);
+      withLock(() => {
+        const result = clusterService.runClustering();
+        ui.alert('Task Started', `ID: ${result.taskId}\nMsg: ${result.message}`, ui.ButtonSet.OK);
+      });
     } catch (e: any) {
       ui.alert('Error', e.message, ui.ButtonSet.OK);
     }
@@ -139,15 +192,16 @@ function handleRunClustering() {
 function handleCheckLastTask() {
   const ui = SpreadsheetApp.getUi();
   try {
-    const result = clusterService.checkLastTask();
+    withLock(() => {
+      const result = clusterService.checkLastTask();
 
-    if (result.status === "FINISHED") {
-      // Logic moved to Service for testability
-      const processResult = clusterService.processTaskResult(result.data);
-      ui.alert(processResult.success ? "Success" : "Info", processResult.message, ui.ButtonSet.OK);
-    } else {
-      ui.alert("Status", `Current Status: ${result.status} (Progress: ${result.progress || '?'})`, ui.ButtonSet.OK);
-    }
+      if (result.status === "FINISHED") {
+        const processResult = clusterService.processTaskResult(result.data);
+        ui.alert(processResult.success ? "Success" : "Info", processResult.message, ui.ButtonSet.OK);
+      } else {
+        ui.alert("Status", `Current Status: ${result.status} (Progress: ${result.progress || '?'})`, ui.ButtonSet.OK);
+      }
+    });
   } catch (e: any) {
     ui.alert('Error', e.message, ui.ButtonSet.OK);
   }

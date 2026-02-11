@@ -17,6 +17,7 @@ export const MESSAGES = {
   },
   SUCCESS: {
     STRUCTURE_CREATED: "Структура таблицы успешно создана!",
-    DUPLICATES_REMOVED: "Удалено дублей:\nRaw Data: {0}\nClean Data: {1}"
+    DUPLICATES_REMOVED: "Удалено дублей:\nRaw Data: {0} (осталось: {2})\nClean Data: {1} (осталось: {3})",
+    NO_DUPLICATES: "✅ Дубликатов не найдено.\nRaw Data: {0} строк\nClean Data: {1} строк"
   }
 };
