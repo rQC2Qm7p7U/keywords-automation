@@ -56,9 +56,10 @@ describe("AdsDataService - Formatting Rules", () => {
         expect(testToAdsHeadline("Buy Now!", abbrevs, true)).toBe("Buy Now");
     });
 
-    test("Description: Should be Sentence Case (Not Camel Case)", () => {
+    test("Description: Should not force Lowercase (Preserve case)", () => {
         expect(testToAdsHeadline("cheap hotels in paris", abbrevs, false)).toBe("Cheap hotels in paris");
-        expect(testToAdsHeadline("BEST CHEAP HOTELS", abbrevs, false)).toBe("Best cheap hotels");
+        // "HOTELS" preserved because we only requested capitalizing start of sentences.
+        expect(testToAdsHeadline("BEST CHEAP HOTELS", abbrevs, false)).toBe("BEST CHEAP HOTELS");
     });
 
     test("Description: Should capitalize start of new sentences", () => {
@@ -68,12 +69,13 @@ describe("AdsDataService - Formatting Rules", () => {
             .toBe("First sentence? Second sentence! Third.");
     });
 
-    test("Description: Should preserve Abbreviations", () => {
-        expect(testToAdsHeadline("best seo services in usa", abbrevs, false)).toBe("Best SEO services in USA");
+    test("Description: Should NOT force Abbreviations (User requested removal of other checks)", () => {
+        // "seo" stays "seo" if not at start. "usa" stays "usa". 
+        expect(testToAdsHeadline("best seo services in usa", abbrevs, false)).toBe("Best seo services in usa");
     });
 
     test("Description: Should allow exclamation marks", () => {
-        expect(testToAdsHeadline("Buy Now!", abbrevs, false)).toBe("Buy now!");
+        expect(testToAdsHeadline("Buy Now!", abbrevs, false)).toBe("Buy Now!");
     });
 
     test("General: Should fix punctuation", () => {

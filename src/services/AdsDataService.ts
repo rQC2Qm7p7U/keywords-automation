@@ -192,9 +192,9 @@ export class AdsDataService {
     private toAdsHeadline(text: string, abbreviations: Set<string>, isHeadline: boolean = true): string {
         let cleaned = text;
 
-        // --- Google Ads Cleaning Rules ---
+        // --- Common Cleaning Rules (Symbols & Spacing) ---
 
-        // 1. Remove Forbidden Symbols (@ < >)
+        // 1. Remove Forbidden Symbols (@ < >) - Requested for Description too
         cleaned = cleaned.replace(/[@<>]/g, "");
 
         // 2. Headlines: No Exclamation Marks
@@ -206,7 +206,6 @@ export class AdsDataService {
         cleaned = cleaned.replace(/([,?!:;])\1+/g, '$1');
 
         // 4. Fix Punctuation Spacing: Comma/Exclam/Question/Colon/Semi-colon followed by non-space
-        // Safe set: , ! ? : ;
         cleaned = cleaned.replace(/([,?!:;])(?=[^\s])/g, '$1 ');
 
         // 5. Spacing (Collapse multiple spaces and trim)
@@ -216,7 +215,6 @@ export class AdsDataService {
 
         const words = cleaned.split(/\s+/);
 
-        // Common prepositions to keep lowercase (only for Title Case / Headlines)
         const IGNORED_WORDS = new Set([
             "in", "on", "at", "to", "for", "of", "with", "by", "from", "and", "or", "a", "an", "the"
         ]);
@@ -227,62 +225,76 @@ export class AdsDataService {
             const upperWord = word.toUpperCase();
             const lowerWord = word.toLowerCase();
 
-            // Extract core word (remove leading/trailing punctuation) for checking
-            const coreWordMatch = word.match(/^([^\w]*)([\w\d'-]+)([^\w]*)$/);
-            const coreWord = coreWordMatch ? coreWordMatch[2] : word;
-            const coreUpper = coreWord.toUpperCase();
-
-            // 1. Check Abbreviation (Applies to both)
-            // Handle "USA." or "SEO," scenarios by checking the core word
-            if (abbreviations.has(coreUpper) || abbreviations.has(upperWord)) { // Fallback to full word check
-                // If it's an abbreviation, ensure the core part is UPPER, preserve punctuation
-                // If exact match with abbreviations set, return upperWord (covers simple cases)
-                if (abbreviations.has(upperWord)) return upperWord;
-
-                // If core match: "usa." -> "USA."
-                return word.replace(coreWord, coreUpper);
-            }
-
-            // 2. Keep Existing ALL CAPS (if > 1 char) - Only for Headlines (Titles)
-            if (isHeadline && word === upperWord && word.length > 1) {
-                return upperWord;
-            }
-
-            let retWord = word;
+            // --- DIFFERENT PATHS FOR HEADLINE VS DESCRIPTION ---
 
             if (isHeadline) {
-                // --- Headline Rules (Title Case) ---
-                // 3. Smart Lowercase for Prepositions
-                if (index !== 0 && (IGNORED_WORDS.has(lowerWord) || word.length < 2)) {
-                    retWord = lowerWord;
-                } else {
-                    // 4. Standard Title Case
-                    retWord = word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-                }
-            } else {
-                // --- Description Rules (Sentence Case) ---
+                // --- HEADLINE LOGIC (Rich Formatting) ---
 
-                // 3. Capitalize if first word OR new sentence
-                // Check if we need to capitalize based on previous sentence ending
+                // 1. Check Abbreviation
+                const coreWordMatch = word.match(/^([^\w]*)([\w\d'-]+)([^\w]*)$/);
+                const coreWord = coreWordMatch ? coreWordMatch[2] : word;
+                const coreUpper = coreWord.toUpperCase();
+
+                if (abbreviations.has(coreUpper) || abbreviations.has(upperWord)) {
+                    if (abbreviations.has(upperWord)) return upperWord;
+                    return word.replace(coreWord, coreUpper);
+                }
+
+                // 2. Keep Existing ALL CAPS
+                if (word === upperWord && word.length > 1) {
+                    return upperWord;
+                }
+
+                // 3. Smart Lowercase
+                if (index !== 0 && (IGNORED_WORDS.has(lowerWord) || word.length < 2)) {
+                    return lowerWord;
+                }
+
+                // 4. Title Case
+                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+
+            } else {
+                // --- DESCRIPTION LOGIC (Strict: Caps + Spacing/Symbols only) ---
+                // "Удалить другие проверки или преобразования"
+                // Meaning: Don't touch case unless it's the start of a sentence.
+                // Don't force lower, don't force upper (abbrevs).
+
+                let retWord = word;
                 const shouldCapitalize = index === 0 || isNewSentence;
 
                 if (shouldCapitalize) {
-                    retWord = word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+                    // Force first letter Upper. 
+                    // Should we force rest lower? "Hotel" or "HoTeL"?
+                    // User said "Заглавная буква в каждом новом предложении".
+                    // Usually implies fixing the start.
+                    // If input is "cheap hotels", output "Cheap hotels".
+                    // If input is "USA hotels", output "USA hotels" (preserve case of 'USA'?).
+                    // If I do `word.charAt(0).toUpperCase() + word.slice(1)`, "uSA" -> "USA". "hotels" -> "Hotels".
+                    // But if it's "hotels", we want "Hotels" (at start).
+                    // If it's midway "hotels", we leave it "hotels"?
+                    // Wait, user didn't explicitly say "Leave other words as is", but "Remove other transformations".
+                    // Transformations usually implies "making lower" or "making title".
+                    // So I should probably PRESERVE existing casing for non-start words?
+                    // And only enforce Capital at start.
+
+                    retWord = word.charAt(0).toUpperCase() + word.slice(1);
                 } else {
-                    retWord = word.toLowerCase();
+                    // Not start of sentence. Leave as is?
+                    // Previous logic forced `toLowerCase()`.
+                    // If I remove `toLowerCase()`, "Cheap HOTELS" -> "Cheap HOTELS".
+                    // User might want this.
+                    retWord = word;
                 }
 
                 // Update state for NEXT word
-                // Check if THIS word ends with sentence terminator (. ! ?)
-                // We check the original 'word' for trailing punctuation
                 if (/[.!?]+$/.test(word)) {
                     isNewSentence = true;
                 } else {
                     isNewSentence = false;
                 }
-            }
 
-            return retWord;
+                return retWord;
+            }
         }).join(" ");
     }
 
