@@ -58,7 +58,8 @@ export {
   saveSettings,
   getRegions,
   handlePrepareAdsData,
-  handleFormatAdsData
+  handleFormatAdsData,
+  handleTransferClustersToAdsData
 };
 
 import { prepareAdsData } from "./controllers/SidebarController";
@@ -74,6 +75,19 @@ function handleFormatAdsData() {
   const adsService = new AdsDataService(sheetRepo);
   const msg = adsService.formatAdsData();
   SpreadsheetApp.getActiveSpreadsheet().toast(msg);
+}
+
+/**
+ * 9. Transfer Clusters -> Ads Data
+ */
+function handleTransferClustersToAdsData() {
+  const adsService = new AdsDataService(sheetRepo);
+  try {
+    const msg = adsService.transferClustersToAdsData();
+    SpreadsheetApp.getActiveSpreadsheet().toast(msg);
+  } catch (e: any) {
+    SpreadsheetApp.getUi().alert("Error", e.message, SpreadsheetApp.getUi().ButtonSet.OK);
+  }
 }
 
 

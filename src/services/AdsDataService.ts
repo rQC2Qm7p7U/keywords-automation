@@ -14,7 +14,88 @@ export class AdsDataService {
      * Main function to prepare Ads Data.
      * Reads Keywords -> Processes them -> Writes to Ads Data sheet.
      */
+    /**
+     * Transfers data from Clusters sheet to Ads Data sheet.
+     * Mapping:
+     * - Group name -> Ad Group
+     * - Keyword -> Keyword
+     * - Keyword -> Keyword for Headline 1 (and Headline 1 via transformation)
+     */
+    transferClustersToAdsData() {
+        // Fetch Settings
+        const settingsData = this.sheetRepo.getData(SHEETS.SETTINGS);
+        const getValue = (key: string, defaultVal: string) => {
+            const row = settingsData.find(r => r[0] === key);
+            return row ? String(row[1]) : defaultVal;
+        };
+
+        const campaignName = getValue("Campaign Name", "Keywords Automation");
+        const targetUrl = getValue("Target URL", "");
+
+        // Initialize Mappers
+        const clustersMapper: SheetDataMapper = this.sheetRepo.getMapper(SHEETS.CLUSTERS);
+        const adsMapper: SheetDataMapper = this.sheetRepo.getMapper(SHEETS.ADS_DATA);
+
+        // Fetch Data from Clusters
+        const clustersData = this.sheetRepo.getData(SHEETS.CLUSTERS);
+        if (!clustersData || clustersData.length === 0) {
+            throw new Error("No data in Clusters sheet");
+        }
+
+        // Fetch Abbreviations
+        const abbrevValues = this.sheetRepo.getColumnValues(SHEETS.INTENT_TYPES, "Abbreviations");
+        const abbreviations = new Set<string>();
+        abbrevValues.forEach(v => {
+            if (v) abbreviations.add(String(v).toUpperCase());
+        });
+
+        // Process Data
+        const processedRows = clustersData.map(row => {
+            const rowObj = clustersMapper.toObject(row);
+            const keyword = String(rowObj["Keyword"] || "");
+            const groupName = String(rowObj["Group name"] || "");
+
+            if (!keyword) return null;
+
+            // Use Group Name from Clusters as Ad Group, or fallback to auto-generated if empty (unlikely)
+            const adGroup = groupName || this.toTitleCase(keyword, abbreviations);
+
+            const adsObj = this.generateAdsRow(keyword, abbreviations, campaignName, targetUrl, adGroup);
+            return adsMapper.toArray(adsObj);
+        }).filter(r => r !== null);
+
+        // Write to Ads Data Sheet
+        this.sheetRepo.clearContent(SHEETS.ADS_DATA);
+        if (processedRows.length > 0) {
+            this.sheetRepo.setData(SHEETS.ADS_DATA, processedRows);
+        }
+
+        // Re-apply Formulas and Validations
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const adsSheet = ss.getSheetByName(SHEETS.ADS_DATA);
+        if (adsSheet) {
+            applyAdsDataFormulas(adsSheet);
+        }
+
+        return `Transferred ${processedRows.length} rows from Clusters to Ads Data.`;
+    }
+
+    /**
+     * Main function to prepare Ads Data (Legacy: from Clean Data).
+     * Reads Keywords -> Processes them -> Writes to Ads Data sheet.
+     */
     prepareAdsData() {
+        return this.transferClustersToAdsData(); // Reuse logic?
+        // Wait, prepareAdsData used Clean Data source.
+        // User requested NEW button 9. But maybe we should deprecate the old way?
+        // User didn't say to replace button 8 (prepare), but added button 9.
+        // Let's keep prepareAdsData as is (from Clean Data) for now, or maybe they want 9 to be the primary way?
+        // "Add button 9" implies addition.
+        // BUT logic is very similar.
+        // I will keep prepareAdsData separate but reusing generateAdsRow.
+
+        // Let's restore prepareAdsData original body but modified generateAdsRow call.
+
         // Fetch Settings
         const settingsData = this.sheetRepo.getData(SHEETS.SETTINGS);
         const getValue = (key: string, defaultVal: string) => {
@@ -49,7 +130,10 @@ export class AdsDataService {
 
             if (!keyword) return null;
 
-            const adsObj = this.generateAdsRow(keyword, abbreviations, campaignName, targetUrl);
+            // Generate Ad Group from Keyword (Legacy behavior)
+            const adGroup = this.toTitleCase(keyword, abbreviations);
+
+            const adsObj = this.generateAdsRow(keyword, abbreviations, campaignName, targetUrl, adGroup);
             return adsMapper.toArray(adsObj);
         }).filter(r => r !== null);
 
@@ -59,7 +143,7 @@ export class AdsDataService {
             this.sheetRepo.setData(SHEETS.ADS_DATA, processedRows);
         }
 
-        // Re-apply Formulas and Validations (Critical for Len columns)
+        // Re-apply Formulas and Validations
         const ss = SpreadsheetApp.getActiveSpreadsheet();
         const adsSheet = ss.getSheetByName(SHEETS.ADS_DATA);
         if (adsSheet) {
@@ -70,12 +154,12 @@ export class AdsDataService {
     /**
      * Generates a single row object for Ads Data sheet.
      */
-    private generateAdsRow(keyword: string, abbreviations: Set<string>, campaignName: string, targetUrl: string): Record<string, any> {
+    private generateAdsRow(keyword: string, abbreviations: Set<string>, campaignName: string, targetUrl: string, adGroupInput: string): Record<string, any> {
         // 1. Campaign Name
         const campaign = campaignName;
 
-        // 2. Ad Group (Use Keyword)
-        const adGroup = this.toTitleCase(keyword, abbreviations);
+        // 2. Ad Group (Use Input or generate)
+        const adGroup = adGroupInput || this.toTitleCase(keyword, abbreviations);
 
         // 3. Keyword (The original keyword)
         const originalKeyword = keyword;

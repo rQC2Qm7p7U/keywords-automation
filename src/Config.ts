@@ -155,6 +155,10 @@ export const MENU = {
       functionName: "handleFormatAdsData"
     },
     {
+      caption: "9. Перенос Clusters -> Ads Data",
+      functionName: "handleTransferClustersToAdsData"
+    },
+    {
       caption: "🔐 Арсенкин: Установить токен",
       functionName: "handleSetArsenkinToken"
     }
