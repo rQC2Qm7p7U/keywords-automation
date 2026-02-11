@@ -221,52 +221,68 @@ export class AdsDataService {
             "in", "on", "at", "to", "for", "of", "with", "by", "from", "and", "or", "a", "an", "the"
         ]);
 
+        let isNewSentence = true;
+
         return words.map((word, index) => {
             const upperWord = word.toUpperCase();
             const lowerWord = word.toLowerCase();
 
-            // 1. Check Abbreviation (Applies to both Headlines and Descriptions)
-            if (abbreviations.has(upperWord)) {
-                return upperWord;
+            // Extract core word (remove leading/trailing punctuation) for checking
+            const coreWordMatch = word.match(/^([^\w]*)([\w\d'-]+)([^\w]*)$/);
+            const coreWord = coreWordMatch ? coreWordMatch[2] : word;
+            const coreUpper = coreWord.toUpperCase();
+
+            // 1. Check Abbreviation (Applies to both)
+            // Handle "USA." or "SEO," scenarios by checking the core word
+            if (abbreviations.has(coreUpper) || abbreviations.has(upperWord)) { // Fallback to full word check
+                // If it's an abbreviation, ensure the core part is UPPER, preserve punctuation
+                // If exact match with abbreviations set, return upperWord (covers simple cases)
+                if (abbreviations.has(upperWord)) return upperWord;
+
+                // If core match: "usa." -> "USA."
+                return word.replace(coreWord, coreUpper);
             }
 
             // 2. Keep Existing ALL CAPS (if > 1 char) - Only for Headlines (Titles)
-            // For Descriptions, we want to normalize to Sentence Case (unless it's a known abbreviation)
             if (isHeadline && word === upperWord && word.length > 1) {
                 return upperWord;
             }
 
+            let retWord = word;
+
             if (isHeadline) {
                 // --- Headline Rules (Title Case) ---
-
                 // 3. Smart Lowercase for Prepositions
-                // If it's NOT the first word AND it's in the ignored list OR length < 2 (legacy check)
                 if (index !== 0 && (IGNORED_WORDS.has(lowerWord) || word.length < 2)) {
-                    return lowerWord;
+                    retWord = lowerWord;
+                } else {
+                    // 4. Standard Title Case
+                    retWord = word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
                 }
-
-                // 4. Standard Title Case (First Upper, rest lower)
-                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-
             } else {
                 // --- Description Rules (Sentence Case) ---
 
-                // 3. First word -> Capitalize
-                if (index === 0) {
-                    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+                // 3. Capitalize if first word OR new sentence
+                // Check if we need to capitalize based on previous sentence ending
+                const shouldCapitalize = index === 0 || isNewSentence;
+
+                if (shouldCapitalize) {
+                    retWord = word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+                } else {
+                    retWord = word.toLowerCase();
                 }
 
-                // 4. Other words -> Lowercase (standardize)
-                // Note: This might lower Proper Nouns if they are not in abbreviations or all-caps.
-                // But "Sentence case" generally implies lowercase common words.
-                // If user entered "Cheap Hotels in Paris", "Paris" (not all caps) -> "paris".
-                // This is a risk. 
-                // However, user specifically complained about Camel Case.
-                // Ideally we preserve original case for non-first words if possible?
-                // But if input is "BEST CHEAP HOTELS", we want "Best cheap hotels".
-                // So lowercasing is safer for "normalization".
-                return word.toLowerCase();
+                // Update state for NEXT word
+                // Check if THIS word ends with sentence terminator (. ! ?)
+                // We check the original 'word' for trailing punctuation
+                if (/[.!?]+$/.test(word)) {
+                    isNewSentence = true;
+                } else {
+                    isNewSentence = false;
+                }
             }
+
+            return retWord;
         }).join(" ");
     }
 

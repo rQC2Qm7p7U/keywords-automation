@@ -61,6 +61,13 @@ describe("AdsDataService - Formatting Rules", () => {
         expect(testToAdsHeadline("BEST CHEAP HOTELS", abbrevs, false)).toBe("Best cheap hotels");
     });
 
+    test("Description: Should capitalize start of new sentences", () => {
+        expect(testToAdsHeadline("hotel in paris. great view. book now", abbrevs, false))
+            .toBe("Hotel in paris. Great view. Book now");
+        expect(testToAdsHeadline("first sentence? second sentence! third.", abbrevs, false))
+            .toBe("First sentence? Second sentence! Third.");
+    });
+
     test("Description: Should preserve Abbreviations", () => {
         expect(testToAdsHeadline("best seo services in usa", abbrevs, false)).toBe("Best SEO services in USA");
     });
