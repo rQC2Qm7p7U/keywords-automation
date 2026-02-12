@@ -74,13 +74,16 @@ export function createStructure() {
   // Apply Validation & Formulas for "Len" columns
   applyAdsDataFormulas(adsDataSheet);
 
-  // 8. Create "Ads Phrase" sheet
+  // 8. Create "Ads Phrase" sheet with ARRAYFORMULA pulling from Ads Data + Settings
   const adsPhraseSheet = ss.insertSheet(SHEETS.ADS_PHRASE);
-  const adsPhraseHeaders = COLUMNS.ADS_PHRASE;
-  adsPhraseSheet.getRange(1, 1, 1, adsPhraseHeaders.length).setValues([adsPhraseHeaders]);
-  adsPhraseSheet.getRange(1, 1, 1, adsPhraseHeaders.length).setFontWeight("bold");
+  const adsPhraseFormula =
+    '={ "Campaign", "Ad Group", "Keyword", "Criterion Type" ; ' +
+    'ARRAYFORMULA(QUERY({ ' +
+    `'${SHEETS.ADS_DATA}'!A2:C, IF('${SHEETS.ADS_DATA}'!C2:C="", "", '${SHEETS.SETTINGS}'!$B$17)` +
+    ' }, "select * where Col3 is not null"))}';
+  adsPhraseSheet.getRange("A1").setFormula(adsPhraseFormula);
   adsPhraseSheet.setFrozenRows(1);
-  protectHeaderRow(adsPhraseSheet);
+  adsPhraseSheet.getRange(1, 1, 1, 4).setFontWeight("bold");
 
   // 9. Create "Ads Adaptive" sheet
   const adsAdaptiveSheet = ss.insertSheet(SHEETS.ADS_ADAPTIVE);
@@ -162,6 +165,8 @@ export function createStructure() {
     ["Max Headline Length", "30", "Максимальная длина заголовка (обычно 30)"],
     ["Max Description Length", "90", "Максимальная длина описания (обычно 90)"],
     ["Max Path Length", "15", "Максимальная длина пути (обычно 15)"],
+    ["Criterion Type", "Phrase", "Тип соответствия (Exact/Phrase/Broad)"],
+    ["Headline 1 position", "1", "Позиция Headline 1 (1 = закрепить, пусто = не закреплять)"],
 
     // --- UTM SETTINGS ---
     ["UTM SETTINGS", "", ""],
@@ -181,7 +186,7 @@ export function createStructure() {
   settingsSheet.getRange(startRow, 1, settingsRows.length, 3).setValues(settingsRows);
 
   // Values Formatting
-  const headerRows = [2, 6, 11, 17, 24];
+  const headerRows = [2, 6, 11, 19, 26];
   headerRows.forEach(r => {
     settingsSheet.getRange(r, 1, 1, 3).setBackground("#d9d9d9").setFontWeight("bold");
   });
@@ -218,9 +223,17 @@ export function createStructure() {
   const boolRule = SpreadsheetApp.newDataValidation().requireCheckbox().build();
   settingsSheet.getRange("B10").setDataValidation(boolRule);
 
-  // UTM Medium dropdown (Row 19: B19)
+  // Criterion Type dropdown (Row 17: B17)
+  const criterionRule = SpreadsheetApp.newDataValidation().requireValueInList(["Exact", "Phrase", "Broad"]).build();
+  settingsSheet.getRange("B17").setDataValidation(criterionRule);
+
+  // Headline 1 position dropdown (Row 18: B18)
+  const h1PosRule = SpreadsheetApp.newDataValidation().requireValueInList(["1", ""]).build();
+  settingsSheet.getRange("B18").setDataValidation(h1PosRule);
+
+  // UTM Medium dropdown (Row 21: B21)
   const utmMediumRule = SpreadsheetApp.newDataValidation().requireValueInList(["cpc", "organic", "email", "social", "banner", "cpa"]).build();
-  settingsSheet.getRange("B19").setDataValidation(utmMediumRule);
+  settingsSheet.getRange("B21").setDataValidation(utmMediumRule);
 
   // Auto-resize
   settingsSheet.autoResizeColumns(1, 3);
