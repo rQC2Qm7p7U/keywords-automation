@@ -101,6 +101,6 @@ describe("Code.ts Entry Points", () => {
         Code.handleRunClustering();
 
         expect(mockClusterInstance.runClustering).toHaveBeenCalled();
-        expect(mockUi.alert).toHaveBeenCalledWith(expect.stringContaining("Started"), expect.any(String), expect.any(String));
+        expect(mockUi.alert).toHaveBeenCalledWith(expect.stringContaining("Успех"), expect.any(String), expect.any(String));
     });
 });

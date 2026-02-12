@@ -10,6 +10,21 @@ export class CleanupService {
         this.configRepo = configRepo;
     }
 
+    /**
+     * Builds regex matchers for whole-word negative keyword matching.
+     * Reused across transferRawToClean, cleanKeysFromNegatives.
+     */
+    private buildNegativeMatchers(intentSheetName: string): { text: string; regex: RegExp }[] {
+        const negValues = this.sheetRepo.getColumnValues(intentSheetName, "Negative");
+        const negativeWords = negValues.map(v => String(v).trim().toLowerCase()).filter(v => v);
+        const boundary = "(^|[^a-zA-Z0-9\u0430-\u044f\u0410-\u042f\u0451\u0401])";
+        const boundaryEnd = "([^a-zA-Z0-9\u0430-\u044f\u0410-\u042f\u0451\u0401]|$)";
+        return negativeWords.map(word => ({
+            text: word,
+            regex: new RegExp(boundary + this.escapeRegExp(word) + boundaryEnd, "i")
+        }));
+    }
+
     // Helper to parse numbers
     private parseNumber(value: any): number {
         if (value === null || value === undefined || value === "") return 0;

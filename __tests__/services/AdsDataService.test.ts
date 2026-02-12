@@ -68,6 +68,7 @@ describe("AdsDataService", () => {
             setBackgrounds: jest.fn(),
             setCellValue: jest.fn(),
             clearColumnValues: jest.fn(),
+            invalidateCache: jest.fn(),
         };
 
         // Setup Default Mock Returns

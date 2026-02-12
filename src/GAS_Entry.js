@@ -66,3 +66,7 @@ function handleFormatAdsData() {
 function handleTransferClustersToAdsData() {
     return App.handleTransferClustersToAdsData();
 }
+
+function onEdit(e) {
+    return App.onEdit(e);
+}

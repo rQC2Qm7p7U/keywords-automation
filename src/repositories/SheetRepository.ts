@@ -18,19 +18,47 @@ export interface ISheetRepository {
     setBackgrounds(sheetName: string, colName: string, backgrounds: string[][]): void;
     setCellValue(sheetName: string, row: number, col: number, value: any): void;
     getMapper(sheetName: string): SheetDataMapper;
+    invalidateCache(sheetName?: string): void;
 }
 
 export class SheetRepository implements ISheetRepository {
+    private sheetCache = new Map<string, GoogleAppsScript.Spreadsheet.Sheet>();
+    private headerCache = new Map<string, string[]>();
+
     private getSheet(sheetName: string): GoogleAppsScript.Spreadsheet.Sheet {
+        if (this.sheetCache.has(sheetName)) return this.sheetCache.get(sheetName)!;
         const ss = SpreadsheetApp.getActiveSpreadsheet();
         const sheet = ss.getSheetByName(sheetName);
         if (!sheet) throw new Error(`Sheet not found: ${sheetName}`);
+        this.sheetCache.set(sheetName, sheet);
         return sheet;
+    }
+
+    /**
+     * Clears cached sheet/header references.
+     * Call after structural changes or between independent operations.
+     */
+    invalidateCache(sheetName?: string): void {
+        if (sheetName) {
+            this.headerCache.delete(sheetName);
+        } else {
+            this.headerCache.clear();
+        }
     }
 
     private getColumnIndex(sheetName: string, colName: string): number {
         const headers = this.getHeaders(sheetName);
         return headers.indexOf(colName);
+    }
+
+    getHeaders(sheetName: string): string[] {
+        if (this.headerCache.has(sheetName)) return this.headerCache.get(sheetName)!;
+        const sheet = this.getSheet(sheetName);
+        const lastCol = sheet.getLastColumn();
+        if (lastCol === 0) return [];
+        const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(String);
+        this.headerCache.set(sheetName, headers);
+        return headers;
     }
 
     getData(sheetName: string): any[][] {
@@ -134,12 +162,8 @@ export class SheetRepository implements ISheetRepository {
         }
     }
 
-    getHeaders(sheetName: string): string[] {
-        const sheet = this.getSheet(sheetName);
-        const lastCol = sheet.getLastColumn();
-        if (lastCol === 0) return [];
-        return sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-    }
+
+
 
     getBackgrounds(sheetName: string, colName: string): string[][] {
         const sheet = this.getSheet(sheetName);

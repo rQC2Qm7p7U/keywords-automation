@@ -16,13 +16,8 @@ global.SpreadsheetApp = {
     getActiveSpreadsheet: jest.fn(() => mockSpreadsheet),
 } as any;
 
-global.API = {
-    ARSENKIN: {
-        BASE_URL: "https://api.arsenkin.ru/base",
-        CHECK_URL: "https://api.arsenkin.ru/check",
-        RESULT_URL: "https://api.arsenkin.ru/result"
-    }
-} as any;
+
+
 
 describe("ConfigRepository", () => {
     let repo: ConfigRepository;
@@ -41,8 +36,8 @@ describe("ConfigRepository", () => {
         expect(repo.getProjectName()).toBe(CONFIG.PROJECT_NAME);
     });
 
-    test("getApiUrl returns correct URL from global API object", () => {
-        expect(repo.getApiUrl("BASE_URL")).toBe("https://api.arsenkin.ru/base");
+    test("getApiUrl returns correct URL from Config module", () => {
+        expect(repo.getApiUrl("BASE_URL")).toBe("https://arsenkin.ru/api/tools/set");
     });
 
     test("getRegions returns empty array if sheet not found", async () => {

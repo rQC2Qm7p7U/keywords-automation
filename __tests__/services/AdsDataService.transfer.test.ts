@@ -91,7 +91,7 @@ describe("AdsDataService - Transfer Clusters to Ads Data", () => {
 
         const result = service.transferClustersToAdsData();
 
-        expect(result).toContain("Transferred 2 rows");
+        expect(result).toContain("Перенесено 2 строк");
 
         // Verify setData was called with correct Ads Data
         expect(mockRepo.setData).toHaveBeenCalledWith(SHEETS.ADS_DATA, expect.any(Array));

@@ -1,7 +1,13 @@
 import { ISheetRepository } from "../repositories/SheetRepository";
 import { SHEETS, COLUMNS } from "../Config";
+import { MESSAGES } from "../Messages";
 import { SheetDataMapper } from "../utils/SheetDataMapper";
 import { applyAdsDataFormulas } from "../Structure";
+
+// Words that stay lowercase in Title Case (except at start of text)
+const IGNORED_WORDS = new Set([
+    "in", "on", "at", "to", "for", "of", "with", "by", "from", "and", "or", "a", "an", "the"
+]);
 
 export class AdsDataService {
     private sheetRepo: ISheetRepository;
@@ -11,36 +17,50 @@ export class AdsDataService {
     }
 
     /**
-     * Main function to prepare Ads Data.
-     * Reads Keywords -> Processes them -> Writes to Ads Data sheet.
+     * Reads a setting value from Settings sheet data.
      */
+    private getSettingsValue(settingsData: any[][], key: string, defaultVal: string): string {
+        const row = settingsData.find(r => r[0] === key);
+        return row ? String(row[1]) : defaultVal;
+    }
+
+    /**
+     * Loads UTM settings from Settings sheet data.
+     */
+    private loadUtmSettings(settingsData: any[][]): Record<string, string> {
+        const gv = (key: string, def: string) => this.getSettingsValue(settingsData, key, def);
+        return {
+            source: gv("UTM Source", "google"),
+            medium: gv("UTM Medium", "cpc"),
+            campaign: gv("UTM Campaign", "{campaignid}"),
+            content: gv("UTM Content", "{creative}"),
+            term: gv("UTM Term", "{keyword}"),
+            device: gv("Device", "{device}")
+        };
+    }
+
+    /**
+     * Loads abbreviation set from Intent Types sheet.
+     * Reused across formatAdsData, prepareAdsData, transferClustersToAdsData, processRange.
+     */
+    private loadAbbreviations(): Set<string> {
+        const values = this.sheetRepo.getColumnValues(SHEETS.INTENT_TYPES, "Abbreviations");
+        const abbreviations = new Set<string>();
+        values.forEach(v => {
+            if (v) abbreviations.add(String(v).toUpperCase());
+        });
+        return abbreviations;
+    }
+
     /**
      * Transfers data from Clusters sheet to Ads Data sheet.
-     * Mapping:
-     * - Group name -> Ad Group
-     * - Keyword -> Keyword
-     * - Keyword -> Keyword for Headline 1 (and Headline 1 via transformation)
+     * Mapping: Group name -> Ad Group, Keyword -> Keyword + Headline 1.
      */
     transferClustersToAdsData() {
-        // Fetch Settings
         const settingsData = this.sheetRepo.getData(SHEETS.SETTINGS);
-        const getValue = (key: string, defaultVal: string) => {
-            const row = settingsData.find(r => r[0] === key);
-            return row ? String(row[1]) : defaultVal;
-        };
-
-        const campaignName = getValue("Campaign Name", "Keywords Automation");
-        const targetUrl = getValue("Target URL", "");
-
-        // Fetch UTM Settings
-        const utmSettings = {
-            source: getValue("UTM Source", "google"),
-            medium: getValue("UTM Medium", "cpc"),
-            campaign: getValue("UTM Campaign", "{campaignid}"),
-            content: getValue("UTM Content", "{creative}"),
-            term: getValue("UTM Term", "{keyword}"),
-            device: getValue("Device", "{device}")
-        };
+        const campaignName = this.getSettingsValue(settingsData, "Campaign Name", "Keywords Automation");
+        const targetUrl = this.getSettingsValue(settingsData, "Target URL", "");
+        const utmSettings = this.loadUtmSettings(settingsData);
 
         // Initialize Mappers
         const clustersMapper: SheetDataMapper = this.sheetRepo.getMapper(SHEETS.CLUSTERS);
@@ -52,12 +72,7 @@ export class AdsDataService {
             throw new Error("No data in Clusters sheet");
         }
 
-        // Fetch Abbreviations
-        const abbrevValues = this.sheetRepo.getColumnValues(SHEETS.INTENT_TYPES, "Abbreviations");
-        const abbreviations = new Set<string>();
-        abbrevValues.forEach(v => {
-            if (v) abbreviations.add(String(v).toUpperCase());
-        });
+        const abbreviations = this.loadAbbreviations();
 
         // Process Data
         const processedRows = clustersData.map(row => {
@@ -80,43 +95,22 @@ export class AdsDataService {
             this.sheetRepo.setData(SHEETS.ADS_DATA, processedRows);
         }
 
-        // Re-apply Formulas and Validations
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
-        const adsSheet = ss.getSheetByName(SHEETS.ADS_DATA);
-        if (adsSheet) {
-            applyAdsDataFormulas(adsSheet!);
-        }
+        this.reapplyAdsFormulas();
 
-        return `Transferred ${processedRows.length} rows from Clusters to Ads Data.`;
+        return MESSAGES.SUCCESS.CLUSTERS_TRANSFERRED.replace("{0}", String(processedRows.length));
     }
 
     /**
-     * Main function to prepare Ads Data (Legacy: from Clean Data).
-     * Reads Keywords -> Processes them -> Writes to Ads Data sheet.
+     * Prepares Ads Data from Clean Data sheet.
      */
     prepareAdsData() {
-        // Fetch Settings
         const settingsData = this.sheetRepo.getData(SHEETS.SETTINGS);
-        const getValue = (key: string, defaultVal: string) => {
-            const row = settingsData.find(r => r[0] === key);
-            return row ? String(row[1]) : defaultVal;
-        };
-
-        const campaignName = getValue("Campaign Name", "Keywords Automation");
-        const targetUrl = getValue("Target URL", "");
+        const campaignName = this.getSettingsValue(settingsData, "Campaign Name", "Keywords Automation");
+        const targetUrl = this.getSettingsValue(settingsData, "Target URL", "");
+        const utmSettings = this.loadUtmSettings(settingsData);
 
         const cleanMapper: SheetDataMapper = this.sheetRepo.getMapper(SHEETS.CLEAN_DATA);
         const adsMapper: SheetDataMapper = this.sheetRepo.getMapper(SHEETS.ADS_DATA);
-
-        // Fetch UTM Settings
-        const utmSettings = {
-            source: getValue("UTM Source", "google"),
-            medium: getValue("UTM Medium", "cpc"),
-            campaign: getValue("UTM Campaign", "{campaignid}"),
-            content: getValue("UTM Content", "{creative}"),
-            term: getValue("UTM Term", "{keyword}"),
-            device: getValue("Device", "{device}")
-        };
 
         // Fetch Keywords from Clean Data
         const cleanData = this.sheetRepo.getData(SHEETS.CLEAN_DATA);
@@ -124,12 +118,7 @@ export class AdsDataService {
             throw new Error("No data in Clean Data sheet");
         }
 
-        // Fetch Abbreviations from "Intent Types"
-        const abbrevValues = this.sheetRepo.getColumnValues(SHEETS.INTENT_TYPES, "Abbreviations");
-        const abbreviations = new Set<string>();
-        abbrevValues.forEach(v => {
-            if (v) abbreviations.add(String(v).toUpperCase());
-        });
+        const abbreviations = this.loadAbbreviations();
 
         // Process Data
         const processedRows = cleanData.map(row => {
@@ -151,11 +140,18 @@ export class AdsDataService {
             this.sheetRepo.setData(SHEETS.ADS_DATA, processedRows);
         }
 
-        // Re-apply Formulas and Validations
+        this.reapplyAdsFormulas();
+    }
+
+    /**
+     * Re-applies array formulas and conditional formatting to Ads Data.
+     * Separated to avoid SpreadsheetApp calls scattered across methods.
+     */
+    private reapplyAdsFormulas(): void {
         const ss = SpreadsheetApp.getActiveSpreadsheet();
         const adsSheet = ss.getSheetByName(SHEETS.ADS_DATA);
         if (adsSheet) {
-            applyAdsDataFormulas(adsSheet!);
+            applyAdsDataFormulas(adsSheet);
         }
     }
 
@@ -170,45 +166,22 @@ export class AdsDataService {
         adGroupInput: string,
         utmSettings: Record<string, string>
     ): Record<string, any> {
-        // 1. Campaign Name
-        const campaign = campaignName;
+        const rowObj: Record<string, any> = {
+            "Campaign": campaignName,
+            "Ad Group": adGroupInput || this.toTitleCase(keyword, abbreviations),
+            "Keyword": keyword,
+            "Keyword for Headline 1": keyword,
+            "Final URL": this.constructFinalUrl(targetUrl, utmSettings),
+            "Headline 1": this.toAdsHeadline(keyword, abbreviations, true),
+        };
 
-        // 2. Ad Group (Use Input or generate)
-        const adGroup = adGroupInput || this.toTitleCase(keyword, abbreviations);
-
-        // 3. Keyword (The original keyword)
-        const originalKeyword = keyword;
-
-        // 4. Keyword for Headlines
-        const keywordForHeadline = keyword;
-
-        const rowObj: Record<string, any> = {};
-
-        rowObj["Campaign"] = campaign;
-        rowObj["Ad Group"] = adGroup;
-        rowObj["Keyword"] = originalKeyword;
-        rowObj["Keyword for Headline 1"] = keywordForHeadline;
-        const finalUrl = this.constructFinalUrl(targetUrl, utmSettings);
-
-        rowObj["Campaign"] = campaign;
-        rowObj["Ad Group"] = adGroup;
-        rowObj["Keyword"] = originalKeyword;
-        rowObj["Keyword for Headline 1"] = keywordForHeadline;
-        rowObj["Final URL"] = finalUrl;
-
-        // 5. Headlines 1-15 (Ads Case)
-        // Headline 1 is special? Currently it just uses the transformed keyword.
-        // Pass true for isHeadline to enforce strict rules (e.g. no !)
-        rowObj["Headline 1"] = this.toAdsHeadline(keyword, abbreviations, true);
-
-        const HEADLINE_COUNT = 15;
-        for (let i = 2; i <= HEADLINE_COUNT; i++) {
+        // Headlines 2-15 (empty by default)
+        for (let i = 2; i <= 15; i++) {
             rowObj[`Headline ${i}`] = "";
         }
 
-        // 6. Descriptions 1-4
-        const DESCRIPTION_COUNT = 4;
-        for (let i = 1; i <= DESCRIPTION_COUNT; i++) {
+        // Descriptions 1-4 (empty by default)
+        for (let i = 1; i <= 4; i++) {
             rowObj[`Description ${i}`] = "";
         }
 
@@ -247,10 +220,6 @@ export class AdsDataService {
 
         const words = cleaned.split(/\s+/);
 
-        const IGNORED_WORDS = new Set([
-            "in", "on", "at", "to", "for", "of", "with", "by", "from", "and", "or", "a", "an", "the"
-        ]);
-
         let isNewSentence = true;
 
         return words.map((word, index) => {
@@ -286,44 +255,15 @@ export class AdsDataService {
                 return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
 
             } else {
-                // --- DESCRIPTION LOGIC (Strict: Caps + Spacing/Symbols only) ---
-                // "Удалить другие проверки или преобразования"
-                // Meaning: Don't touch case unless it's the start of a sentence.
-                // Don't force lower, don't force upper (abbrevs).
-
-                let retWord = word;
+                // --- DESCRIPTION LOGIC ---
+                // Only capitalize first word of each sentence. Preserve existing casing otherwise.
                 const shouldCapitalize = index === 0 || isNewSentence;
+                const retWord = shouldCapitalize
+                    ? word.charAt(0).toUpperCase() + word.slice(1)
+                    : word;
 
-                if (shouldCapitalize) {
-                    // Force first letter Upper. 
-                    // Should we force rest lower? "Hotel" or "HoTeL"?
-                    // User said "Заглавная буква в каждом новом предложении".
-                    // Usually implies fixing the start.
-                    // If input is "cheap hotels", output "Cheap hotels".
-                    // If input is "USA hotels", output "USA hotels" (preserve case of 'USA'?).
-                    // If I do `word.charAt(0).toUpperCase() + word.slice(1)`, "uSA" -> "USA". "hotels" -> "Hotels".
-                    // But if it's "hotels", we want "Hotels" (at start).
-                    // If it's midway "hotels", we leave it "hotels"?
-                    // Wait, user didn't explicitly say "Leave other words as is", but "Remove other transformations".
-                    // Transformations usually implies "making lower" or "making title".
-                    // So I should probably PRESERVE existing casing for non-start words?
-                    // And only enforce Capital at start.
-
-                    retWord = word.charAt(0).toUpperCase() + word.slice(1);
-                } else {
-                    // Not start of sentence. Leave as is?
-                    // Previous logic forced `toLowerCase()`.
-                    // If I remove `toLowerCase()`, "Cheap HOTELS" -> "Cheap HOTELS".
-                    // User might want this.
-                    retWord = word;
-                }
-
-                // Update state for NEXT word
-                if (/[.!?]+$/.test(word)) {
-                    isNewSentence = true;
-                } else {
-                    isNewSentence = false;
-                }
+                // Track sentence boundaries for next word
+                isNewSentence = /[.!?]+$/.test(word);
 
                 return retWord;
             }
@@ -400,7 +340,7 @@ export class AdsDataService {
         const sheetName = SHEETS.ADS_DATA;
         const data = this.sheetRepo.getData(sheetName);
         if (!data || data.length === 0) {
-            return "No data in Ads Data sheet.";
+            return MESSAGES.ERRORS.NO_DATA.replace("{0}", sheetName);
         }
 
         const headers = this.sheetRepo.getHeaders(sheetName);
@@ -423,33 +363,17 @@ export class AdsDataService {
 
         // We also need "Keyword" column to generate UTM
         const keywordIndex = headers.indexOf("Keyword");
-        if (keywordIndex === -1) return "Keyword column not found.";
+        if (keywordIndex === -1) return MESSAGES.ERRORS.COLUMN_NOT_FOUND.replace("{0}", "Keyword");
 
-        if (targetIndices.length === 0) return "No target columns found.";
+        if (targetIndices.length === 0) return MESSAGES.ERRORS.COLUMN_NOT_FOUND.replace("{0}", "Headline/Description");
 
         // 2. Fetch Settings for UTM
         const settingsData = this.sheetRepo.getData(SHEETS.SETTINGS);
-        const getValue = (key: string, defaultVal: string) => {
-            const row = settingsData.find(r => r[0] === key);
-            return row ? String(row[1]) : defaultVal;
-        };
-
-        const targetUrl = getValue("Target URL", "");
-        const utmSettings = {
-            source: getValue("UTM Source", "google"),
-            medium: getValue("UTM Medium", "cpc"),
-            campaign: getValue("UTM Campaign", "{campaignid}"),
-            content: getValue("UTM Content", "{creative}"),
-            term: getValue("UTM Term", "{keyword}"),
-            device: getValue("Device", "{device}")
-        };
+        const targetUrl = this.getSettingsValue(settingsData, "Target URL", "");
+        const utmSettings = this.loadUtmSettings(settingsData);
 
         // 2. Load Abbreviations
-        const abbrevValues = this.sheetRepo.getColumnValues(SHEETS.INTENT_TYPES, "Abbreviations");
-        const abbreviations = new Set<string>();
-        abbrevValues.forEach(v => {
-            if (v) abbreviations.add(String(v).toUpperCase());
-        });
+        const abbreviations = this.loadAbbreviations();
 
         // 3. Process Data & Collect Column Updates
         const columnUpdates = new Map<number, string[]>();
@@ -529,9 +453,11 @@ export class AdsDataService {
                 this.sheetRepo.setColumnValues(sheetName, colName, values);
             });
 
-            return `Formatted ${cellsUpdatedCount} cells in ${columnUpdates.size} columns.`;
+            return MESSAGES.SUCCESS.FORMAT_COMPLETE
+                .replace("{0}", String(cellsUpdatedCount))
+                .replace("{1}", String(columnUpdates.size));
         } else {
-            return "No formatting changes needed.";
+            return MESSAGES.SUCCESS.FORMAT_NO_CHANGES;
         }
     }
 
@@ -549,18 +475,21 @@ export class AdsDataService {
         const startCol = range.getColumn();
         const numCols = range.getNumColumns();
 
-        // Optimization: Check if range intersects with Headlines/Descriptions
-        // Headlines/Descriptions usually start from Col 6 (Headline 1) onwards.
-        // Let's get headers to be sure.
-        // We can't cache headers easily in onEdit without PropertiesService, so we just check columns roughly or read headers.
-        // Reading headers (row 1) is fast.
         const lastCol = sheet.getLastColumn();
         const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0] as string[];
 
-        const targetIndices: number[] = [];
-        const isHeadlineMap = new Map<number, boolean>(); // ColIndex -> isHeadline
+        // --- 1. Check if "Keyword for Headline 1" was edited → update Headline 1 ---
+        const kwForH1Idx = headers.indexOf("Keyword for Headline 1"); // 0-based
+        const h1Idx = headers.indexOf("Headline 1"); // 0-based
 
-        // Identify which columns in the edited range are relevant
+        const kwForH1Edited = kwForH1Idx !== -1 && h1Idx !== -1
+            && (kwForH1Idx + 1) >= startCol
+            && (kwForH1Idx + 1) < startCol + numCols;
+
+        // --- 2. Check if edited range touches any Headline/Description columns ---
+        const targetIndices: number[] = [];
+        const isHeadlineMap = new Map<number, boolean>();
+
         for (let c = 0; c < numCols; c++) {
             const colIdx = startCol + c; // 1-based
             if (colIdx > headers.length) continue;
@@ -572,44 +501,56 @@ export class AdsDataService {
             }
         }
 
-        if (targetIndices.length === 0) return; // Edited range has no relevant columns
+        // Nothing relevant was edited
+        if (targetIndices.length === 0 && !kwForH1Edited) return;
 
-        // Load Abbreviations (Once per edit)
-        // We can't inject repositories easily in onEdit if we use simple triggers vs installable.
-        // But here we are inside the Service which has sheetRepo.
-        // Note: usage in onEdit context requires the service to be initialized with a repo.
-        const abbrevValues = this.sheetRepo.getColumnValues(SHEETS.INTENT_TYPES, "Abbreviations");
-        const abbreviations = new Set<string>();
-        abbrevValues.forEach(v => {
-            if (v) abbreviations.add(String(v).toUpperCase());
-        });
+        const abbreviations = this.loadAbbreviations();
 
-        // Read values ONLY for the edited range
-        // Logic: specific relevant columns? Or just the whole block?
-        // Reading the whole block is easier for mapping back.
-        const values = range.getValues(); // 2D array [row][col] relative to range
+        // --- 3. If "Keyword for Headline 1" was edited, update Headline 1 column ---
+        if (kwForH1Edited) {
+            const kwColInRange = kwForH1Idx + 1 - startCol; // 0-based offset within range
+            const rangeValues = range.getValues();
+            const h1Col = h1Idx + 1; // 1-based
+
+            const h1Range = sheet.getRange(startRow, h1Col, numRows, 1);
+            const h1Values = h1Range.getValues();
+            let h1Changed = false;
+
+            for (let r = 0; r < numRows; r++) {
+                const kwText = String(rangeValues[r][kwColInRange] || "");
+                if (!kwText) continue;
+                const formatted = this.toAdsHeadline(kwText, abbreviations, true);
+                if (formatted !== String(h1Values[r][0])) {
+                    h1Values[r][0] = formatted;
+                    h1Changed = true;
+                }
+            }
+
+            if (h1Changed) {
+                h1Range.setValues(h1Values);
+            }
+        }
+
+        // --- 4. Format Headlines/Descriptions in the edited range ---
+        if (targetIndices.length === 0) return;
+
+        const values = range.getValues();
         const newValues = values.map((row, rIdx) => {
             return row.map((cellVal, cIdx) => {
-                const colAbsIndex = startCol + cIdx; // 1-based absolute column index
+                const colAbsIndex = startCol + cIdx;
 
                 if (!isHeadlineMap.has(colAbsIndex)) {
-                    return cellVal; // Pass through unchanged
+                    return cellVal;
                 }
 
                 const isHeadline = isHeadlineMap.get(colAbsIndex) || false;
                 const text = String(cellVal || "");
-
                 if (!text) return "";
 
-                // Apply formatting
-                const newText = this.toAdsHeadline(text, abbreviations, isHeadline);
-                return newText;
+                return this.toAdsHeadline(text, abbreviations, isHeadline);
             });
         });
 
-        // Write back
-        // Optimization: check if anything actually changed?
-        // JSON.stringify compare or just write. Writing is costlier.
         let changed = false;
         for (let r = 0; r < numRows; r++) {
             for (let c = 0; c < numCols; c++) {

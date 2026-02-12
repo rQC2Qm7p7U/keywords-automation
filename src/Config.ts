@@ -1,5 +1,5 @@
 /**
- * Config.gs
+ * Config.ts
  * Contains all the configuration constants for the project.
  */
 
@@ -7,6 +7,15 @@
 export const CONFIG = {
   PROJECT_NAME: "Keyword Planner Automation",
   VERSION: "1.0.0"
+};
+
+// Arsenkin API Endpoints (official docs: https://arsenkin.ru/tools/api/)
+export const API = {
+  ARSENKIN: {
+    BASE_URL: "https://arsenkin.ru/api/tools/set",
+    CHECK_URL: "https://arsenkin.ru/api/tools/check",
+    RESULT_URL: "https://arsenkin.ru/api/tools/get"
+  }
 };
 
 // Sheet Names
@@ -71,8 +80,7 @@ export const COLUMNS = {
     "Headline 11", "Len 11", "Headline 12", "Len 12", "Headline 13", "Len 13", "Headline 14", "Len 14", "Headline 15", "Len 15",
     "Description 1", "Len D1", "Description 2", "Len D2", "Description 3", "Len D3", "Description 4", "Len D4",
     "Final URL",
-    "Path1", "Len P1", "Path2", "Len P2",
-    "Campaign"
+    "Path1", "Len P1", "Path2", "Len P2"
   ],
   SETTINGS: [
     "Parameter",

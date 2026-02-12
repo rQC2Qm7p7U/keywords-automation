@@ -5,16 +5,6 @@
 
 import { SHEETS, COLUMNS, CONFIG } from "./Config";
 import { MESSAGES } from "./Messages";
-// I need to check what Structure.ts actually uses.
-// It uses SHEETS, COLUMNS, MESSAGES (toast), SETTINGS?
-// Config.ts viewed earlier had CONFIG, SHEETS, COLUMNS, MENU. It didn't have MESSAGES?
-// Let me double check Config.ts content from previous steps. 
-// Step 49 showed Config.ts. It had CONFIG, SHEETS, COLUMNS, MENU. No MESSAGES.
-// Code.ts uses MESSAGES?
-// Code.ts: `const msg = MESSAGES.SUCCESS...`
-// Messages.ts (renamed from Messages.gs) likely contains MESSAGES.
-// I need to export MESSAGES from Messages.ts too.
-
 
 /**
  * Deletes all existing sheets and creates the new structure.
@@ -228,34 +218,7 @@ export function createStructure() {
   const boolRule = SpreadsheetApp.newDataValidation().requireCheckbox().build();
   settingsSheet.getRange("B10").setDataValidation(boolRule);
 
-  // 7. UTM Medium (Row 20 -> B20, check row calculation: 2 + 18 = 20?)
-  // Let's count:
-  // 1: Headers
-  // 2: GENERAL
-  // 3: Search Engine
-  // 4: Region Search
-  // 5: Region
-  // 6: CLUSTERING
-  // 7: Group Type
-  // 8: Group Count
-  // 9: Depth
-  // 10: Ignore Main
-  // 11: ADS DATA
-  // 12: Campaign Name
-  // 13: Target URL
-  // 14: Max Headline
-  // 15: Max Descr
-  // 16: Max Path
-  // 17: UTM SETTINGS
-  // 18: UTM Source
-  // 19: UTM Medium <--- (Row 19, B19)
-  // 20: UTM Campaign
-  // 21: UTM Content
-  // 22: UTM Term
-  // 23: Device
-  // 24: SYSTEM
-  // 25: API Token
-
+  // UTM Medium dropdown (Row 19: B19)
   const utmMediumRule = SpreadsheetApp.newDataValidation().requireValueInList(["cpc", "organic", "email", "social", "banner", "cpa"]).build();
   settingsSheet.getRange("B19").setDataValidation(utmMediumRule);
 
