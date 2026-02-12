@@ -72,17 +72,8 @@ export class CleanupService {
                 .filter(k => k)
         );
 
-        // 3. Optimization: Pre-compile Negative Matchers
-        const negValues = this.sheetRepo.getColumnValues(intentSheetName, "Negative");
-        const negativeWords = negValues.map(v => String(v).trim().toLowerCase()).filter(v => v);
-
-        const boundary = "(^|[^a-zA-Z0-9а-яА-ЯёЁ])";
-        const boundaryEnd = "([^a-zA-Z0-9а-яА-ЯёЁ]|$)";
-
-        const matchers = negativeWords.map(word => ({
-            text: word,
-            regex: new RegExp(boundary + this.escapeRegExp(word) + boundaryEnd, "i")
-        }));
+        // 3. Pre-compile Negative Matchers (reuse shared builder)
+        const matchers = this.buildNegativeMatchers(intentSheetName);
 
         const cleanData: any[] = [];
         const rawSearches: number[] = [];
@@ -298,18 +289,8 @@ export class CleanupService {
         const clusterSheetName = this.configRepo.getSheetName("CLUSTERS");
         const intentSheetName = this.configRepo.getSheetName("INTENT_TYPES");
 
-        // Prepare Matchers
-        const negValues = this.sheetRepo.getColumnValues(intentSheetName, "Negative");
-        const negativeWords = negValues.map(v => String(v).trim().toLowerCase()).filter(v => v);
-
-        // Pre-compile regexes for performance
-        const boundary = "(^|[^a-zA-Z0-9а-яА-ЯёЁ])";
-        const boundaryEnd = "([^a-zA-Z0-9а-яА-ЯёЁ]|$)";
-
-        const matchers = negativeWords.map(word => ({
-            text: word,
-            regex: new RegExp(boundary + this.escapeRegExp(word) + boundaryEnd, "i")
-        }));
+        // Pre-compile Negative Matchers (reuse shared builder)
+        const matchers = this.buildNegativeMatchers(intentSheetName);
 
         // Clean "Clean Data" (Check searches: YES, Dedupe: YES via Set logic in Helper)
         const cleanRemoved = this.cleanSheetHelper(cleanSheetName, matchers, true, true);
@@ -486,9 +467,12 @@ export class CleanupService {
         if (headers.length === 0) return;
 
         const negSet = new Set(negatives);
+        // Cyrillic-aware boundaries — same pattern as buildNegativeMatchers
+        const boundary = "(^|[^a-zA-Z0-9\u0430-\u044f\u0410-\u042f\u0451\u0401])";
+        const boundaryEnd = "([^a-zA-Z0-9\u0430-\u044f\u0410-\u042f\u0451\u0401]|$)";
         const matchers = negatives.map(word => ({
             text: word,
-            regex: new RegExp("\\b" + this.escapeRegExp(word) + "\\b", "i")
+            regex: new RegExp(boundary + this.escapeRegExp(word) + boundaryEnd, "i")
         }));
 
         headers.forEach(header => {

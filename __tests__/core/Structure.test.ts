@@ -15,6 +15,15 @@ const mockProtection = {
     canDomainEdit: jest.fn().mockReturnValue(true),
 };
 
+// Mock headers for Ads Data sheet — includes "Len" columns to exercise applyAdsDataFormulas
+const mockAdsHeaders = [
+    "Campaign", "Ad Group", "Keyword",
+    "Keyword for Headline 1", "Len",
+    "Headline 1", "Len 1", "Headline 2", "Len 2",
+    "Description 1", "Len D1",
+    "Final URL", "Path1", "Len P1",
+];
+
 // Use self-referencing style for chaining
 const mockRange: any = {
     setValues: jest.fn(),
@@ -25,6 +34,8 @@ const mockRange: any = {
     setBackground: jest.fn(),
     setDataValidation: jest.fn(),
     autoResizeColumns: jest.fn(),
+    getValues: jest.fn().mockReturnValue([mockAdsHeaders]),
+    clearContent: jest.fn(),
 };
 
 // Enable chaining
@@ -35,6 +46,8 @@ mockRange.setFormula.mockReturnValue(mockRange);
 mockRange.setBackground.mockReturnValue(mockRange);
 mockRange.setDataValidation.mockReturnValue(mockRange);
 mockRange.autoResizeColumns.mockReturnValue(mockRange);
+mockRange.clearContent.mockReturnValue(mockRange);
+mockRange.getValues.mockReturnValue([mockAdsHeaders]);
 
 const mockSheet = {
     getRange: jest.fn().mockReturnValue(mockRange),

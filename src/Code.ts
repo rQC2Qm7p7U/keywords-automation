@@ -59,71 +59,87 @@ function handleCreateStructure() {
 
 // 2. Remove Duplicates
 function handleRemoveDuplicates() {
-  withLock(() => {
-    const raw = cleanupService.removeDuplicates(SHEETS.RAW_DATA);
-    const clean = cleanupService.removeDuplicates(SHEETS.CLEAN_DATA);
+  try {
+    withLock(() => {
+      const raw = cleanupService.removeDuplicates(SHEETS.RAW_DATA);
+      const clean = cleanupService.removeDuplicates(SHEETS.CLEAN_DATA);
 
-    let msg: string;
-    if (raw.removed === 0 && clean.removed === 0) {
-      msg = MESSAGES.SUCCESS.NO_DUPLICATES
-        .replace("{0}", String(raw.remaining))
-        .replace("{1}", String(clean.remaining));
-    } else {
-      msg = MESSAGES.SUCCESS.DUPLICATES_REMOVED
-        .replace("{0}", String(raw.removed))
-        .replace("{1}", String(clean.removed))
-        .replace("{2}", String(raw.remaining))
-        .replace("{3}", String(clean.remaining));
-    }
-    SpreadsheetApp.getActiveSpreadsheet().toast(msg);
-  });
+      let msg: string;
+      if (raw.removed === 0 && clean.removed === 0) {
+        msg = MESSAGES.SUCCESS.NO_DUPLICATES
+          .replace("{0}", String(raw.remaining))
+          .replace("{1}", String(clean.remaining));
+      } else {
+        msg = MESSAGES.SUCCESS.DUPLICATES_REMOVED
+          .replace("{0}", String(raw.removed))
+          .replace("{1}", String(clean.removed))
+          .replace("{2}", String(raw.remaining))
+          .replace("{3}", String(clean.remaining));
+      }
+      SpreadsheetApp.getActiveSpreadsheet().toast(msg);
+    });
+  } catch (e: any) {
+    SpreadsheetApp.getUi().alert(MESSAGES.UI.TITLE_ERROR, MESSAGES.ERRORS.GENERAL + e.message, SpreadsheetApp.getUi().ButtonSet.OK);
+  }
 }
 
 // 3. Collect Negatives
 function handleCollectNegatives() {
-  withLock(() => {
-    const stats = cleanupService.collectNegativeKeywords();
-    const newCount = stats.fromRaw + stats.fromClean + stats.fromClusters;
-    const parts = [
-      MESSAGES.SUCCESS.NEGATIVES_COLLECTED.replace("{0}", String(stats.total)),
-    ];
-    if (newCount > 0) {
-      parts.push(MESSAGES.SUCCESS.NEGATIVES_NEW
-        .replace("{0}", String(newCount))
-        .replace("{1}", String(stats.fromRaw))
-        .replace("{2}", String(stats.fromClean))
-        .replace("{3}", String(stats.fromClusters)));
-    }
-    if (stats.existing > 0) {
-      parts.push(MESSAGES.SUCCESS.NEGATIVES_EXISTING.replace("{0}", String(stats.existing)));
-    }
-    if (newCount === 0) {
-      parts.push(MESSAGES.SUCCESS.NEGATIVES_NONE_NEW);
-    }
-    SpreadsheetApp.getActiveSpreadsheet().toast(parts.join("\n"));
-  });
+  try {
+    withLock(() => {
+      const stats = cleanupService.collectNegativeKeywords();
+      const newCount = stats.fromRaw + stats.fromClean + stats.fromClusters;
+      const parts = [
+        MESSAGES.SUCCESS.NEGATIVES_COLLECTED.replace("{0}", String(stats.total)),
+      ];
+      if (newCount > 0) {
+        parts.push(MESSAGES.SUCCESS.NEGATIVES_NEW
+          .replace("{0}", String(newCount))
+          .replace("{1}", String(stats.fromRaw))
+          .replace("{2}", String(stats.fromClean))
+          .replace("{3}", String(stats.fromClusters)));
+      }
+      if (stats.existing > 0) {
+        parts.push(MESSAGES.SUCCESS.NEGATIVES_EXISTING.replace("{0}", String(stats.existing)));
+      }
+      if (newCount === 0) {
+        parts.push(MESSAGES.SUCCESS.NEGATIVES_NONE_NEW);
+      }
+      SpreadsheetApp.getActiveSpreadsheet().toast(parts.join("\n"));
+    });
+  } catch (e: any) {
+    SpreadsheetApp.getUi().alert(MESSAGES.UI.TITLE_ERROR, MESSAGES.ERRORS.GENERAL + e.message, SpreadsheetApp.getUi().ButtonSet.OK);
+  }
 }
 
 // 4. Transfer Raw -> Clean
 function handleTransferRawToClean() {
-  withLock(() => {
-    const count = cleanupService.transferRawToClean();
-    SpreadsheetApp.getActiveSpreadsheet().toast(
-      MESSAGES.SUCCESS.TRANSFER_COMPLETE.replace("{0}", String(count))
-    );
-  });
+  try {
+    withLock(() => {
+      const count = cleanupService.transferRawToClean();
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        MESSAGES.SUCCESS.TRANSFER_COMPLETE.replace("{0}", String(count))
+      );
+    });
+  } catch (e: any) {
+    SpreadsheetApp.getUi().alert(MESSAGES.UI.TITLE_ERROR, MESSAGES.ERRORS.GENERAL + e.message, SpreadsheetApp.getUi().ButtonSet.OK);
+  }
 }
 
 // 5. Clean Keys from Negatives
 function handleCleanKeysFromNegatives() {
-  withLock(() => {
-    const { cleanRemoved, clustersRemoved } = cleanupService.cleanKeysFromNegatives();
-    SpreadsheetApp.getActiveSpreadsheet().toast(
-      MESSAGES.SUCCESS.NEGATIVES_CLEANED
-        .replace("{0}", String(cleanRemoved))
-        .replace("{1}", String(clustersRemoved))
-    );
-  });
+  try {
+    withLock(() => {
+      const { cleanRemoved, clustersRemoved } = cleanupService.cleanKeysFromNegatives();
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        MESSAGES.SUCCESS.NEGATIVES_CLEANED
+          .replace("{0}", String(cleanRemoved))
+          .replace("{1}", String(clustersRemoved))
+      );
+    });
+  } catch (e: any) {
+    SpreadsheetApp.getUi().alert(MESSAGES.UI.TITLE_ERROR, MESSAGES.ERRORS.GENERAL + e.message, SpreadsheetApp.getUi().ButtonSet.OK);
+  }
 }
 
 // 6. Run Clustering
@@ -200,11 +216,15 @@ function handlePrepareAdsData() {
 
 // 10. Format Ads Data (CamelCase + Abbreviations)
 function handleFormatAdsData() {
-  withLock(() => {
-    const adsService = new AdsDataService(sheetRepo);
-    const msg = adsService.formatAdsData();
-    SpreadsheetApp.getActiveSpreadsheet().toast(msg);
-  });
+  try {
+    withLock(() => {
+      const adsService = new AdsDataService(sheetRepo);
+      const msg = adsService.formatAdsData();
+      SpreadsheetApp.getActiveSpreadsheet().toast(msg);
+    });
+  } catch (e: any) {
+    SpreadsheetApp.getUi().alert(MESSAGES.UI.TITLE_ERROR, MESSAGES.ERRORS.GENERAL + e.message, SpreadsheetApp.getUi().ButtonSet.OK);
+  }
 }
 
 // 11. Transfer Clusters -> Ads Data

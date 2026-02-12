@@ -40,8 +40,10 @@ export class SheetRepository implements ISheetRepository {
      */
     invalidateCache(sheetName?: string): void {
         if (sheetName) {
+            this.sheetCache.delete(sheetName);
             this.headerCache.delete(sheetName);
         } else {
+            this.sheetCache.clear();
             this.headerCache.clear();
         }
     }
