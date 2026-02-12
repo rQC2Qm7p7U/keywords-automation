@@ -85,13 +85,30 @@ export function createStructure() {
   adsPhraseSheet.setFrozenRows(1);
   adsPhraseSheet.getRange(1, 1, 1, 4).setFontWeight("bold");
 
-  // 9. Create "Ads Adaptive" sheet
+  // 9. Create "Ads Adaptive" sheet with ARRAYFORMULA pulling from Ads Data + Settings
   const adsAdaptiveSheet = ss.insertSheet(SHEETS.ADS_ADAPTIVE);
-  const adsAdaptiveHeaders = COLUMNS.ADS_ADAPTIVE;
-  adsAdaptiveSheet.getRange(1, 1, 1, adsAdaptiveHeaders.length).setValues([adsAdaptiveHeaders]);
-  adsAdaptiveSheet.getRange(1, 1, 1, adsAdaptiveHeaders.length).setFontWeight("bold");
+  const adsAdaptiveFormula =
+    '={ "Campaign", "Ad Group", "Headline 1", "Headline 1 position", ' +
+    '"Headline 2", "Headline 3", "Headline 4", "Headline 5", ' +
+    '"Headline 6", "Headline 7", "Headline 8", "Headline 9", ' +
+    '"Headline 10", "Headline 11", "Headline 12", "Headline 13", ' +
+    '"Headline 14", "Headline 15", ' +
+    '"Description 1", "Description 2", "Description 3", "Description 4", ' +
+    '"Final URL", "Path 1", "Path 2" ; ' +
+    'ARRAYFORMULA(QUERY({ ' +
+    `'${SHEETS.ADS_DATA}'!A2:B, ` +
+    `'${SHEETS.ADS_DATA}'!F2:F, ` +
+    `IF('${SHEETS.ADS_DATA}'!A2:A="", "", '${SHEETS.SETTINGS}'!$B$18), ` +
+    `'${SHEETS.ADS_DATA}'!H2:H, '${SHEETS.ADS_DATA}'!J2:J, '${SHEETS.ADS_DATA}'!L2:L, '${SHEETS.ADS_DATA}'!N2:N, ` +
+    `'${SHEETS.ADS_DATA}'!P2:P, '${SHEETS.ADS_DATA}'!R2:R, '${SHEETS.ADS_DATA}'!T2:T, '${SHEETS.ADS_DATA}'!V2:V, ` +
+    `'${SHEETS.ADS_DATA}'!X2:X, '${SHEETS.ADS_DATA}'!Z2:Z, '${SHEETS.ADS_DATA}'!AB2:AB, '${SHEETS.ADS_DATA}'!AD2:AD, ` +
+    `'${SHEETS.ADS_DATA}'!AF2:AF, '${SHEETS.ADS_DATA}'!AH2:AH, ` +
+    `'${SHEETS.ADS_DATA}'!AJ2:AJ, '${SHEETS.ADS_DATA}'!AL2:AL, '${SHEETS.ADS_DATA}'!AN2:AN, '${SHEETS.ADS_DATA}'!AP2:AP, ` +
+    `'${SHEETS.ADS_DATA}'!AR2:AR, '${SHEETS.ADS_DATA}'!AS2:AS, '${SHEETS.ADS_DATA}'!AU2:AU` +
+    ' }, "select * where Col1 is not null"))}';
+  adsAdaptiveSheet.getRange("A1").setFormula(adsAdaptiveFormula);
   adsAdaptiveSheet.setFrozenRows(1);
-  protectHeaderRow(adsAdaptiveSheet);
+  adsAdaptiveSheet.getRange(1, 1, 1, 25).setFontWeight("bold");
 
   // 10. Create "Regions" sheet (Hidden)
   const regionsSheet = ss.insertSheet(SHEETS.REGIONS);
