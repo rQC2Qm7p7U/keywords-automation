@@ -8,7 +8,7 @@ import { AdsDataService } from "./services/AdsDataService";
 import { getSettings, saveSettings, getRegions, prepareAdsData } from "./controllers/SidebarController";
 import { createProjectMenu, handleOpenSidebar } from "./UI";
 import { createStructure } from "./Structure";
-import { SHEETS } from "./Config";
+import { SHEETS, CLEARABLE_SHEETS } from "./Config";
 import { MESSAGES } from "./Messages";
 
 // --- Lock Helper ---
@@ -234,6 +234,34 @@ function onEdit(e: GoogleAppsScript.Events.SheetsOnEdit) {
   }
 }
 
+// 13. Clear All Data
+function handleClearAllData() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.alert(
+    MESSAGES.UI.TITLE_WARNING,
+    MESSAGES.WARNINGS.CLEAR_ALL_DATA,
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response == ui.Button.YES) {
+    try {
+      withLock(() => {
+        const { cleared, skipped } = cleanupService.clearAllData(CLEARABLE_SHEETS);
+        let msg = MESSAGES.SUCCESS.CLEAR_ALL_DATA
+          .replace("{0}", String(cleared))
+          .replace("{1}", String(CLEARABLE_SHEETS.length));
+        if (skipped.length > 0) {
+          msg += MESSAGES.SUCCESS.CLEAR_ALL_DATA_SKIPPED
+            .replace("{0}", skipped.join(", "));
+        }
+        SpreadsheetApp.getActiveSpreadsheet().toast(msg);
+      });
+    } catch (e: any) {
+      ui.alert(MESSAGES.UI.TITLE_ERROR, e.message, ui.ButtonSet.OK);
+    }
+  }
+}
+
 // --- Exports ---
 export {
   onOpen,
@@ -251,6 +279,7 @@ export {
   getRegions,
   handlePrepareAdsData,
   handleFormatAdsData,
-  handleTransferClustersToAdsData
+  handleTransferClustersToAdsData,
+  handleClearAllData
 };
 

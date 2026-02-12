@@ -67,6 +67,10 @@ function handleTransferClustersToAdsData() {
     return App.handleTransferClustersToAdsData();
 }
 
+function handleClearAllData() {
+    return App.handleClearAllData();
+}
+
 function onEdit(e) {
     return App.onEdit(e);
 }

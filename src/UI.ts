@@ -26,6 +26,8 @@ export function createProjectMenu() {
     .addItem(MENU.ITEMS[9].caption, MENU.ITEMS[9].functionName)
     .addSeparator()
     .addItem(MENU.ITEMS[10].caption, MENU.ITEMS[10].functionName)
+    .addSeparator()
+    .addItem(MENU.ITEMS[11].caption, MENU.ITEMS[11].functionName)
     .addToUi();
 }
 

@@ -31,6 +31,16 @@ export const SHEETS = {
   ADS_ADAPTIVE: "Ads Adaptive"
 };
 
+// Sheets that can be cleared by the "Clear Table" action
+export const CLEARABLE_SHEETS = [
+  SHEETS.RAW_DATA,
+  SHEETS.CLEAN_DATA,
+  SHEETS.CLUSTERS,
+  SHEETS.ADS_DATA,
+  SHEETS.ADS_PHRASE,
+  SHEETS.ADS_ADAPTIVE
+];
+
 // Columns Configuration
 export const COLUMNS = {
   INTENT_TYPES: [
@@ -165,6 +175,10 @@ export const MENU = {
     {
       caption: "9. Перенос Clusters -> Ads Data",
       functionName: "handleTransferClustersToAdsData"
+    },
+    {
+      caption: "🧹 Очистить таблицу",
+      functionName: "handleClearAllData"
     },
     {
       caption: "🔐 Арсенкин: Установить токен",

@@ -456,6 +456,30 @@ export class CleanupService {
         });
     }
 
+    /**
+     * Clears data (not headers/formulas) on the given sheets.
+     * Skips sheets that don't exist — logs a warning instead of failing.
+     * @returns Stats: how many sheets were cleared and which were skipped.
+     */
+    clearAllData(sheetNames: string[]): { cleared: number; skipped: string[] } {
+        let cleared = 0;
+        const skipped: string[] = [];
+
+        for (const name of sheetNames) {
+            try {
+                this.sheetRepo.clearContent(name);
+                cleared++;
+                console.log(`[CleanupService] Cleared: ${name}`);
+            } catch (e) {
+                // Sheet not found — skip gracefully
+                skipped.push(name);
+                console.warn(`[CleanupService] Skipped (not found): ${name}`);
+            }
+        }
+
+        return { cleared, skipped };
+    }
+
     private highlightConflictsInIntentTypes(negatives: string[]): void {
         const intentSheet = this.configRepo.getSheetName("INTENT_TYPES");
         const headers = this.sheetRepo.getHeaders(intentSheet);
